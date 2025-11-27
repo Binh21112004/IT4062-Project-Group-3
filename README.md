@@ -36,9 +36,8 @@ Hệ thống TCP socket server đa luồng với xác thực người dùng, ses
 
 #### **1.5 Lưu trữ dữ liệu (Data Storage)**
 - **Cơ sở dữ liệu dựa trên file**: File text phân tách bằng ký tự pipe (`users.txt`)
-- **Không dùng cơ sở dữ liệu ngoài**: Lưu trữ nhẹ cho mục đích học tập
 - **Định dạng**: `user_id|username|password|email|is_active`
-- **Lưu trữ bền vững**: Dữ liệu được lưu vĩnh viễn trên đĩa
+
 
 #### **1.6 Thư viện & Công cụ (Libraries & Tools)**
 - **cJSON**: Thư viện chuẩn công nghiệp để phân tích/tạo JSON
