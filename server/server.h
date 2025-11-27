@@ -1,0 +1,30 @@
+#ifndef SERVER_H
+#define SERVER_H
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include "../common/protocol.h"
+#include "file_db.h"
+#include "session.h"
+
+#define PORT 8888
+#define MAX_CLIENTS 100
+
+typedef struct {
+    int socket;
+    SessionManager* sm;
+} ServerContext;
+
+// Handler functions
+void handle_register(ServerContext* ctx, int client_sock, const char* json_data);
+void handle_login(ServerContext* ctx, int client_sock, const char* json_data);
+void handle_friend_invite(ServerContext* ctx, int client_sock, const char* json_data);
+void handle_friend_response(ServerContext* ctx, int client_sock, const char* json_data);
+void handle_friend_remove(ServerContext* ctx, int client_sock, const char* json_data);
+void handle_client_message(ServerContext* ctx, int client_sock, Message* msg);
+
+// Helper functions
+void send_notification(int sock, const char* command, const char* json_data);
+
+#endif // SERVER_H
