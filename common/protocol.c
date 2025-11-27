@@ -37,7 +37,7 @@ int receive_message(int sock, Message* msg) {
     
     // Receive until \r\n delimiter is found
     while (strstr(buffer, "\r\n") == NULL) {
-        // Check buffer overflow
+        
         if (total_len >= MAX_BUFFER - 1) {
             fprintf(stderr, "[ERROR] Buffer overflow\n");
             return -1;

@@ -14,7 +14,7 @@ void db_init() {
     if (f) fclose(f);
 }
 
-// Cleanup
+
 void db_cleanup() {
     if (current_user) {
         free(current_user);

@@ -5,7 +5,7 @@
 #include "file_db.h"
 
 #define MAX_SESSIONS 1000
-#define SESSION_TIMEOUT 3600 // 1 hour
+#define SESSION_TIMEOUT 3600 
 #define MAX_TOKEN 64
 
 typedef struct {
@@ -33,4 +33,4 @@ void session_cleanup_expired(SessionManager* sm);
 int session_validate(SessionManager* sm, const char* token);
 int session_is_user_logged_in(SessionManager* sm, int user_id, int exclude_socket);
 
-#endif // SESSION_H
+#endif 

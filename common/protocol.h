@@ -31,8 +31,8 @@ typedef struct {
     char json_data[MAX_JSON];
 } Message;
 
-// Function prototypes
+
 int send_message(int sock, const char* command, const char* json_data);
 int receive_message(int sock, Message* msg);
 
-#endif // PROTOCOL_H
+#endif 

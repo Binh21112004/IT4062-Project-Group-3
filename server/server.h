@@ -22,4 +22,4 @@ void handle_login(ServerContext* ctx, int client_sock, const char* json_data);
 void handle_logout(ServerContext* ctx, int client_sock, const char* json_data);
 void handle_client_message(ServerContext* ctx, int client_sock, Message* msg);
 
-#endif // SERVER_H
+#endif 

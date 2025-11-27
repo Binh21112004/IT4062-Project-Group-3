@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-// Mutex for thread-safe session operations
+
 static pthread_mutex_t session_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Generate random token
@@ -31,7 +31,7 @@ char* session_create(SessionManager* sm, int user_id, int client_socket) {
     pthread_mutex_lock(&session_mutex);
     
     if (sm->session_count >= MAX_SESSIONS) {
-        // Cleanup expired sessions (internal, no need to lock)
+        // Cleanup expired sessions 
         time_t now = time(NULL);
         for (int i = 0; i < sm->session_count; i++) {
             if (sm->sessions[i].is_active) {
@@ -42,7 +42,7 @@ char* session_create(SessionManager* sm, int user_id, int client_socket) {
         }
     }
     
-    // Find first available slot
+
     int slot_index = -1;
     for (int i = 0; i < MAX_SESSIONS; i++) {
         if (!sm->sessions[i].is_active) {
@@ -53,10 +53,10 @@ char* session_create(SessionManager* sm, int user_id, int client_socket) {
     
     if (slot_index == -1) {
         pthread_mutex_unlock(&session_mutex);
-        return NULL;  // No available slot
+        return NULL; 
     }
     
-    // Update session_count if needed
+   
     if (slot_index >= sm->session_count) {
         sm->session_count = slot_index + 1;
     }

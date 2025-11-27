@@ -21,7 +21,7 @@ void print_menu() {
     printf("1. Register\n");
     printf("2. Login\n");
     
-    // Show logout option only if logged in
+   
     if (strlen(session_token) > 0) {
         printf("3. Logout\n");
     }
@@ -39,17 +39,17 @@ void do_register() {
     printf("Username: ");
     fflush(stdout);
     if (fgets(username, sizeof(username), stdin) == NULL) return;
-    username[strcspn(username, "\n")] = 0;  // Remove newline
+    username[strcspn(username, "\n")] = 0;  
     
     printf("Password: ");
     fflush(stdout);
     if (fgets(password, sizeof(password), stdin) == NULL) return;
-    password[strcspn(password, "\n")] = 0;  // Remove newline
+    password[strcspn(password, "\n")] = 0;  
     
     printf("Email: ");
     fflush(stdout);
     if (fgets(email, sizeof(email), stdin) == NULL) return;
-    email[strcspn(email, "\n")] = 0;  // Remove newline
+    email[strcspn(email, "\n")] = 0;  
     
     // Build JSON
     cJSON *req = cJSON_CreateObject();
@@ -58,14 +58,14 @@ void do_register() {
     cJSON_AddStringToObject(req, "email", email);
     char *json_data = cJSON_PrintUnformatted(req);
     
-    // Send request
+    
     send_message(client_sock, CMD_REGISTER, json_data);
     
-    // Cleanup request
+ 
     free(json_data);
     cJSON_Delete(req);
     
-    // Wait for response
+  
     if (receive_message(client_sock, &msg) > 0) {
         cJSON *json = cJSON_Parse(msg.json_data);
         if (json) {
@@ -93,27 +93,27 @@ void do_login() {
     printf("Username: ");
     fflush(stdout);
     if (fgets(username, sizeof(username), stdin) == NULL) return;
-    username[strcspn(username, "\n")] = 0;  // Remove newline
+    username[strcspn(username, "\n")] = 0; 
     
     printf("Password: ");
     fflush(stdout);
     if (fgets(password, sizeof(password), stdin) == NULL) return;
-    password[strcspn(password, "\n")] = 0;  // Remove newline
+    password[strcspn(password, "\n")] = 0;  
     
-    // Build JSON
+    
     cJSON *req = cJSON_CreateObject();
     cJSON_AddStringToObject(req, "username", username);
     cJSON_AddStringToObject(req, "password", password);
     char *json_data = cJSON_PrintUnformatted(req);
     
-    // Send request
+ 
     send_message(client_sock, CMD_LOGIN, json_data);
     
-    // Cleanup request
+    
     free(json_data);
     cJSON_Delete(req);
     
-    // Wait for response
+    
     if (receive_message(client_sock, &msg) > 0) {
         cJSON *json = cJSON_Parse(msg.json_data);
         if (json) {
@@ -150,19 +150,19 @@ void do_logout() {
     
     Message msg;
     
-    // Build JSON
+
     cJSON *req = cJSON_CreateObject();
     cJSON_AddStringToObject(req, "session_token", session_token);
     char *json_data = cJSON_PrintUnformatted(req);
     
-    // Send request
+
     send_message(client_sock, CMD_LOGOUT, json_data);
     
-    // Cleanup request
+   
     free(json_data);
     cJSON_Delete(req);
     
-    // Wait for response
+  
     if (receive_message(client_sock, &msg) > 0) {
         cJSON *json = cJSON_Parse(msg.json_data);
         if (json) {
@@ -172,7 +172,7 @@ void do_logout() {
             if (code_item) {
                 int code = (int)code_item->valuedouble;
                 if (code == 200) {
-                    // Clear session
+                    
                     memset(session_token, 0, sizeof(session_token));
                     user_id = 0;
                     
@@ -197,20 +197,19 @@ int main() {
     
     printf("=== TCP Socket Client ===\n");
     
-    // Create socket
     client_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (client_sock < 0) {
         perror("Socket creation failed");
         return 1;
     }
     
-    // Setup server address
+   
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
     
-    // Connect to server
+  
     printf("Connecting to server %s:%d...\n", SERVER_IP, SERVER_PORT);
     if (connect(client_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("Connection failed");
@@ -220,18 +219,17 @@ int main() {
     
     printf("Connected successfully!\n");
     
-    // Main loop
     int choice;
     while (running) {
         print_menu();
         printf("> ");
         fflush(stdout);
         if (scanf("%d", &choice) != 1) {
-            while (getchar() != '\n');  // Clear invalid input
+            while (getchar() != '\n');  
             printf("Invalid input!\n");
             continue;
         }
-        while (getchar() != '\n');  // Clear input buffer
+        while (getchar() != '\n');  
         
         switch (choice) {
             case 1:
@@ -252,7 +250,7 @@ int main() {
         }
     }
     
-    // Cleanup
+   
     close(client_sock);
     
     return 0;

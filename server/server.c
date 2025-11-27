@@ -298,7 +298,7 @@ int main() {
     printf("[DATABASE] File-based database initialized\n");
     printf("[SESSION] Session manager initialized\n");
     
-    // Create socket
+  
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock < 0) {
         perror("Socket creation failed");
@@ -313,20 +313,20 @@ int main() {
         return 1;
     }
     
-    // Setup server address
+   
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
     
-    // Bind socket
+
     if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
         close(server_sock);
         return 1;
     }
     
-    // Listen
+ 
     if (listen(server_sock, MAX_CLIENTS) < 0) {
         perror("Listen failed");
         close(server_sock);
@@ -336,7 +336,7 @@ int main() {
     printf("[SERVER] Listening on port %d\n", PORT);
     printf("[SERVER] Waiting for connections...\n\n");
     
-    // Accept connections
+
     while (1) {
         client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_addr_len);
         if (client_sock < 0) {
@@ -344,7 +344,7 @@ int main() {
             continue;
         }
         
-        // Create thread for client
+ 
         pthread_t thread;
         int* client_sock_ptr = malloc(sizeof(int));
         *client_sock_ptr = client_sock;
@@ -354,11 +354,11 @@ int main() {
             close(client_sock);
             free(client_sock_ptr);
         } else {
-            pthread_detach(thread); // Detach thread
+            pthread_detach(thread); 
         }
     }
     
-    // Cleanup
+
     close(server_sock);
     db_cleanup();
     return 0;
