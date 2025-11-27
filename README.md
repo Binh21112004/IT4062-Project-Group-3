@@ -50,7 +50,7 @@ Hệ thống TCP socket server đa luồng với xác thực người dùng, ses
 
 ## 2.  Các chức năng hiện có
 
-### **2.1 Xử lý truyền dòng (Stream Processing)** (1 điểm)
+### **2.1 Xử lý truyền dòng (Stream Processing)** 
 **Mô tả:** Xử lý luồng TCP với giao thức dựa trên delimiter
 
 **Kỹ thuật:**
@@ -63,7 +63,7 @@ Hệ thống TCP socket server đa luồng với xác thực người dùng, ses
 
 ---
 
-### **2.2 Cơ chế vào/ra Socket Server** (2 điểm)
+### **2.2 Cơ chế vào/ra Socket Server** 
 **Mô tả:** Server đồng thời đa luồng
 
 **Kỹ thuật:**
@@ -75,17 +75,11 @@ Hệ thống TCP socket server đa luồng với xác thực người dùng, ses
 **Files:** `server/server.c`
 
 **Ví dụ code:**
-```c
-while (1) {
-    client_sock = accept(server_sock, ...);
-    pthread_create(&tid, NULL, client_thread, &client_sock);
-    pthread_detach(tid);  // Không chặn
-}
-```
+
 
 ---
 
-### **2.3 Đăng ký tài khoản (Account Registration)** (2 điểm)
+### **2.3 Đăng ký tài khoản (Account Registration)** 
 **Mô tả:** Đăng ký tài khoản với xác thực
 
 **Tính năng:**
@@ -105,7 +99,7 @@ Mã lỗi: 400 (không hợp lệ), 409 (trùng lặp), 500 (lỗi server)
 
 ---
 
-### **2.4 Đăng nhập + Quản lý phiên (Login + Session Management)** (2 điểm)
+### **2.4 Đăng nhập + Quản lý phiên (Login + Session Management)** 
 **Mô tả:** Xác thực và quản lý phiên đăng nhập
 
 **Tính năng:**
@@ -113,7 +107,7 @@ Mã lỗi: 400 (không hợp lệ), 409 (trùng lặp), 500 (lỗi server)
 - Tạo session token ngẫu nhiên 32 ký tự
 - Thao tác session an toàn luồng với mutex
 - Hết hạn phiên (1 giờ)
-- **Ngăn chặn đăng nhập trùng lặp** (từ bài tập cũ)
+- Ngăn chặn đăng nhập trùng lặp
 - Ánh xạ user với kết nối socket
 
 **Files:** `server/session.c`, `server/server.c` - `handle_login()`
@@ -139,7 +133,7 @@ typedef struct {
 
 ---
 
-### **2.5 Đăng xuất (Logout)** (Bonus)
+### **2.5 Đăng xuất (Logout)** 
 **Mô tả:** Đăng xuất và hủy phiên
 
 **Tính năng:**
