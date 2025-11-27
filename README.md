@@ -4,7 +4,7 @@
 
 ---
 
-## 1. 🎯 Tổng quan dự án
+## 1.  Tổng quan dự án
 
 ### Mô tả
 Hệ thống TCP socket server đa luồng với xác thực người dùng, session management và giao thức custom delimiter-based.
@@ -48,7 +48,7 @@ Hệ thống TCP socket server đa luồng với xác thực người dùng, ses
 
 ---
 
-## 2. ✨ Các chức năng hiện có
+## 2.  Các chức năng hiện có
 
 ### **2.1 Xử lý truyền dòng (Stream Processing)** (1 điểm)
 **Mô tả:** Xử lý luồng TCP với giao thức dựa trên delimiter
@@ -158,7 +158,7 @@ Phản hồi: {"code":200,"message":"Logout successful"}
 
 ---
 
-## 3. 🚀 Cách chạy dự án
+## 3.  Cách chạy dự án
 
 ### **3.1 Yêu cầu hệ thống**
 - **OS:** Ubuntu/Linux (hoặc WSL trên Windows)
@@ -236,7 +236,7 @@ ls -la build/
 ```
 
 
-## 4. 📁 Cấu trúc dự án
+## 4.  Cấu trúc dự án
 
 ```
 IT4062-Project/
@@ -271,7 +271,7 @@ IT4062-Project/
 ---
 
 
-## 5. 🔍 Đặc tả các giao thức
+## 5.  Đặc tả các giao thức
 
 ### **Message Format**
 ```
