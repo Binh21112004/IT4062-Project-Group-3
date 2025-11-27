@@ -1,530 +1,315 @@
-# TCP Socket Social Network Project
+# TCP Socket Server Project
 
-Đồ án môn Lập trình mạng - IT4062
+**Đồ án môn Lập trình mạng - IT4062**
 
-## 🎯 Mô tả
+---
 
-Project này là một hệ thống mạng xã hội đơn giản sử dụng:
-- **Protocol:** TCP Socket với định dạng `COMMAND|JSON\r\n` 
-- **JSON Library:** cJSON (industry standard)
-- **Storage:** File-based (.txt files) trong thư mục `data/`
-- **Architecture:** Multi-threaded concurrent server (pthread)
-- **Platform:** Ubuntu/Linux
+## 1. 🎯 Tổng quan dự án
 
-## ✨ Các chức năng đã implement
+### Mô tả
+Hệ thống TCP socket server đa luồng với xác thực người dùng, session management và giao thức custom delimiter-based.
 
-✅ **1. Xử lý truyền dòng (Stream Processing)**
-- Delimiter-based protocol: `\r\n` 
-- Format: `COMMAND_TYPE|JSON_DATA\r\n`
-- Buffer overflow protection
-- File: `common/protocol.c`, `common/protocol.h`
+### Kỹ thuật sử dụng
 
-✅ **2. Cơ chế vào/ra socket server**
-- Multi-threaded concurrent server (pthread)
-- Thread-per-connection model
-- Tự động cleanup session khi client disconnect
-- File: `server/server.c`
+#### **1.1 Lập trình mạng (Network Programming)**
+- **TCP Socket** với `socket()`, `bind()`, `listen()`, `accept()`, `send()`, `recv()`
+- **Đa luồng (Multi-threading)** - Mô hình thread-per-connection sử dụng `pthread`
+- **Server xử lý đồng thời (Concurrent Server)** - Xử lý đồng thời nhiều clients (tối đa 1000 phiên)
 
-✅ **3. Đăng ký tài khoản**
-- Validation username (không chứa ký tự đặc biệt)
-- Kiểm tra username trùng lặp
-- Lưu thông tin vào file `data/users.txt`
-- File: `server/handlers.c`, `server/file_db.c`
+#### **1.2 Thiết kế giao thức (Protocol Design)**
+- **Giao thức sử dụng**: `COMMAND|JSON_DATA`
+- **Xử lý luồng dữ liệu (Stream Processing)**: Xử lý phân mảnh TCP stream với delimiter `\r\n`
+- **Bảo vệ tràn bộ đệm (Buffer Overflow Protection)**: Vòng lặp `recv()` với kiểm tra kích thước
+- **Dữ liệu JSON (JSON Payload)**: Sử dụng thư viện cJSON cho tuần tự hóa dữ liệu
 
-✅ **4. Đăng nhập + quản lý phiên**
-- Session token (random 32-char string)
-- Thread-safe với pthread_mutex
-- Session timeout: 1 giờ
-- Mapping user với socket connection
-- File: `server/session.c`, `server/handlers.c`
+#### **1.3 Đồng thời & An toàn luồng (Concurrency & Thread Safety)**
+- **Thư viện pthread**: `pthread_create()`, `pthread_detach()`, `pthread_mutex_t`
+- **Đồng bộ hóa Mutex**: Bảo vệ dữ liệu phiên chia sẻ
+- **Ngăn chặn đăng nhập trùng lặp**: Kiểm tra user đã đăng nhập ở client khác
+- **Thao tác an toàn luồng**: Tất cả các thao tác session đều có bảo vệ mutex
 
-✅ **5. Gửi lời mời kết bạn**
-- Validate session token
-- Real-time notification cho target user
-- Lưu friend request vào `data/friend_requests.txt`
-- File: `server/handlers.c` - `handle_friend_invite()`
+#### **1.4 Quản lý phiên (Session Management)**
+- **Xác thực dựa trên Token**: Session token ngẫu nhiên 32 ký tự
+- **Hết hạn phiên**: Timeout 1 giờ khi không hoạt động
+- **Lưu trữ dựa trên mảng**: `session_t sessions[MAX_SESSIONS]` - Truy cập O(1)
+- **Xác thực phiên**: Xác minh token cho mọi request đã xác thực
 
-✅ **6. Chấp nhận/Từ chối lời mời kết bạn**
-- Parse boolean `accept` field với cJSON
-- Real-time notification cho requester
-- Tự động tạo friendship khi accept
-- File: `server/handlers.c` - `handle_friend_response()`
+#### **1.5 Lưu trữ dữ liệu (Data Storage)**
+- **Cơ sở dữ liệu dựa trên file**: File text phân tách bằng ký tự pipe (`users.txt`)
+- **Không dùng cơ sở dữ liệu ngoài**: Lưu trữ nhẹ cho mục đích học tập
+- **Định dạng**: `user_id|username|password|email|is_active`
+- **Lưu trữ bền vững**: Dữ liệu được lưu vĩnh viễn trên đĩa
 
-✅ **7. Hủy kết bạn**
-- Xóa friendship từ `data/friendships.txt`
-- Real-time notification cho friend bị xóa
-- File: `server/handlers.c` - `handle_friend_remove()`
+#### **1.6 Thư viện & Công cụ (Libraries & Tools)**
+- **cJSON**: Thư viện chuẩn công nghiệp để phân tích/tạo JSON
+- **pthread**: Thư viện luồng POSIX
+- **GCC**: Trình biên dịch GNU C với chuẩn C99
+- **Make**: Công cụ tự động hóa build
 
-## 🔧 JSON Library: cJSON
+---
 
-Project đã migrate từ json_helper (custom) sang **cJSON** (industry standard):
+## 2. ✨ Các chức năng hiện có
 
-**Advantages:**
-- ✅ No buffer overflow risk (dynamic allocation)
-- ✅ Support nested JSON & arrays
-- ✅ Better error handling
-- ✅ Industry standard (thousands of projects use it)
-- ✅ Active maintenance & documentation
+### **2.1 Xử lý truyền dòng (Stream Processing)** (1 điểm)
+**Mô tả:** Xử lý luồng TCP với giao thức dựa trên delimiter
 
-**Migration details:** See `MIGRATION_SUMMARY.md`
+**Kỹ thuật:**
+- Delimiter: `\r\n` để phân tách các thông điệp
+- Định dạng: `COMMAND|JSON_DATA\r\n`
+- Xử lý các thông điệp bị phân mảnh từ TCP stream
+- Bảo vệ tràn bộ đệm
 
-## Cấu trúc thư mục
+**Files:** `common/protocol.c`, `common/protocol.h`
 
-```
-IT4062-Project/
-├── common/              # Shared code
-│   ├── protocol.h       # Protocol definitions
-│   ├── protocol.c       # Send/receive message functions
-│   ├── json_helper.h    # JSON parsing helpers
-│   └── json_helper.c
-├── server/              # Server code
-│   ├── server.c        # Server main loop
-│   ├── server.h        # Server headers
-│   ├── handlers.c      # Request handlers
-│   ├── file_db.h       # File database definitions
-│   ├── file_db.c       # File database operations
-│   ├── session.h       # Session management
-│   └── session.c
-├── client/              # Client code
-│   └── client.c        # Client application
-├── data/                # Data files (tạo tự động)
-│   ├── users.txt       # User data
-│   ├── friend_requests.txt  # Friend requests
-│   └── friendships.txt      # Friendships
-├── build/               # Build output (tạo tự động)
-├── Makefile            # Build script
-└── README.md           # This file
+---
+
+### **2.2 Cơ chế vào/ra Socket Server** (2 điểm)
+**Mô tả:** Server đồng thời đa luồng
+
+**Kỹ thuật:**
+- Mô hình thread-per-connection
+- `pthread_create()` tạo thread cho mỗi client
+- `pthread_detach()` tự động dọn dẹp
+- Chấp nhận nhiều clients đồng thời
+
+**Files:** `server/server.c`
+
+**Ví dụ code:**
+```c
+while (1) {
+    client_sock = accept(server_sock, ...);
+    pthread_create(&tid, NULL, client_thread, &client_sock);
+    pthread_detach(tid);  // Không chặn
+}
 ```
 
-## Yêu cầu hệ thống
+---
 
-- Ubuntu/Linux OS
-- GCC compiler
-- pthread library
-- Make utility
+### **2.3 Đăng ký tài khoản (Account Registration)** (2 điểm)
+**Mô tả:** Đăng ký tài khoản với xác thực
 
-## Hướng dẫn build
+**Tính năng:**
+- Xác thực username (không chứa `|`, `,`, `:`)
+- Phát hiện username trùng lặp
+- Xác thực email
+- Lưu vào file `data/users.txt`
 
-### Build tất cả
+**Files:** `server/server.c` - `handle_register()`, `server/file_db.c`
+
+**Giao thức:**
+```json
+Yêu cầu: {"username":"alice","password":"pass123","email":"alice@example.com"}
+Phản hồi: {"code":100,"message":"Registration successful","user_id":1}
+Mã lỗi: 400 (không hợp lệ), 409 (trùng lặp), 500 (lỗi server)
+```
+
+---
+
+### **2.4 Đăng nhập + Quản lý phiên (Login + Session Management)** (2 điểm)
+**Mô tả:** Xác thực và quản lý phiên đăng nhập
+
+**Tính năng:**
+- Xác minh mật khẩu
+- Tạo session token ngẫu nhiên 32 ký tự
+- Thao tác session an toàn luồng với mutex
+- Hết hạn phiên (1 giờ)
+- **Ngăn chặn đăng nhập trùng lặp** (từ bài tập cũ)
+- Ánh xạ user với kết nối socket
+
+**Files:** `server/session.c`, `server/server.c` - `handle_login()`
+
+**Giao thức:**
+```json
+Yêu cầu: {"username":"alice","password":"pass123"}
+Phản hồi: {"code":200,"session_token":"a1b2c3...","user_id":1}
+Mã lỗi: 401 (sai mật khẩu), 404 (không tìm thấy user), 409 (đã đăng nhập)
+```
+
+**Cấu trúc Session:**
+```c
+typedef struct {
+    char token[MAX_TOKEN];
+    int user_id;
+    int client_socket;
+    time_t created_at;
+    time_t last_activity;
+    int is_active;
+} Session;
+```
+
+---
+
+### **2.5 Đăng xuất (Logout)** (Bonus)
+**Mô tả:** Đăng xuất và hủy phiên
+
+**Tính năng:**
+- Xác thực session token
+- Hủy session khỏi bộ nhớ
+- Xóa token phía client
+- Ghi log các sự kiện đăng xuất
+
+**Files:** `server/server.c` - `handle_logout()`
+
+**Giao thức:**
+```json
+Yêu cầu: {"session_token":"a1b2c3..."}
+Phản hồi: {"code":200,"message":"Logout successful"}
+```
+
+---
+
+## 3. 🚀 Cách chạy dự án
+
+### **3.1 Yêu cầu hệ thống**
+- **OS:** Ubuntu/Linux (hoặc WSL trên Windows)
+- **Compiler:** GCC with C99+ support
+- **Libraries:** pthread, standard C library
+
+**Cài đặt dependencies (Ubuntu):**
+```bash
+sudo apt-get update
+sudo apt-get install build-essential
+```
+
+---
+
+### **3.2 Build dự án**
 
 ```bash
+# Di chuyển đến thư mục dự án
+
+# Xóa build cũ
+make clean
+
+# Build server + client
 make
+
+# Kiểm tra file thực thi
+ls -la build/
+# Kết quả: client, server
 ```
 
-Lệnh này sẽ tạo:
-- `build/server`
-- `build/client`
-- `data/` directory
+---
 
-### Build riêng lẻ
+### **3.3 Chạy Server**
 
-```bash
-make build/server  # Build server only
-make build/client  # Build client only
-```
-
-### Clean build files
-
-```bash
-make clean      # Xóa build files
-make clean-all  # Xóa build và data files
-```
-
-## Hướng dẫn chạy
-
-### 1. Chạy Server
-
-Mở terminal và chạy:
-
-```bash
-make run-server
-```
-
-Hoặc:
-
+**Terminal 1:**
 ```bash
 ./build/server
+
+# Kết quả mong đợi:
+# [SERVER] Database initialized
+# [SERVER] Server listening on port 8888...
 ```
 
-Server sẽ lắng nghe trên port **8888**
+**Logs của Server:**
+- `[SERVER]` - Sự kiện server
+- `[REGISTER]` - Các lần thử đăng ký
+- `[LOGIN]` - Các lần thử đăng nhập
+- `[LOGOUT]` - Sự kiện đăng xuất
+- `[MESSAGE]` - Lệnh đến
 
-### 2. Chạy Client
+---
 
-Mở terminal khác và chạy:
+### **3.4 Chạy Client**
 
+**Terminal 2 (Client 1):**
 ```bash
-make run-client
+./build/client
+
+# Kết quả:
+# === TCP Socket Client ===
+# Connecting to server 127.0.0.1:8888...
+# Connected successfully!
+# 
+# === MENU ===
+# 1. Register
+# 2. Login
+# 0. Exit
+# ============
+# >
 ```
 
-Hoặc:
-
+**Terminal 3 (Client 2):** Mở thêm clients để kiểm tra xử lý đồng thời
 ```bash
 ./build/client
 ```
 
-## Hướng dẫn sử dụng Client
 
-### Menu chính
-
-```
-=== MENU ===
-1. Register           # Đăng ký tài khoản
-2. Login             # Đăng nhập
-3. Send friend request    # Gửi lời mời kết bạn
-4. Accept friend request  # Chấp nhận lời mời
-5. Reject friend request  # Từ chối lời mời
-6. Remove friend          # Hủy kết bạn
-0. Exit                   # Thoát
-```
-
-### Demo workflow
-
-#### 1. Đăng ký tài khoản (Client A)
+## 4. 📁 Cấu trúc dự án
 
 ```
-Chọn: 1
-Username: ducanh
-Password: 123456
-Email: ducanh@example.com
+IT4062-Project/
+├── common/              # Định nghĩa các tiện ích
+│   ├── protocol.h       # Định nghĩa giao thức (CMD_*, Message struct)
+│   ├── protocol.c       # send_message(), receive_message()
+│   ├── cJSON.h          # Header thư viện JSON
+│   └── cJSON.c          # Triển khai thư viện JSON
+│
+├── server/              # Code server
+│   ├── server.c         # Server chính 
+│   ├── server.h         # Headers server
+│   ├── file_db.c        # Thao tác cơ sở dữ liệu file 
+│   ├── file_db.h        # Cấu trúc database 
+│   ├── session.c        # Quản lý phiên 
+│   └── session.h        # Cấu trúc session
+│
+├── client/              # Code client
+│   └── client.c         # Ứng dụng client tương tác (257 dòng)
+│
+├── data/                # Các file dữ liệu (tạo tự động)
+│   └── users.txt        # Dữ liệu người dùng (phân cách bằng pipe)
+│
+├── build/               # Kết quả build (tạo tự động)
+│   ├── server           # File thực thi server
+│   └── client           # File thực thi client
+│
+├── Makefile             # Script build
+└── README.md            # Mô tả dự án
 ```
-
-#### 2. Đăng ký tài khoản (Client B)
-
-```
-Chọn: 1
-Username: hoang
-Password: 123456
-Email: hoang@example.com
-```
-
-#### 3. Đăng nhập (Client A)
-
-```
-Chọn: 2
-Username: ducanh
-Password: 123456
-```
-
-#### 4. Đăng nhập (Client B)
-
-```
-Chọn: 2
-Username: hoang
-Password: 123456
-```
-
-#### 5. Gửi lời mời kết bạn (Client A → Client B)
-
-```
-Client A:
-Chọn: 3
-Target username: hoang
-```
-
-**Client B sẽ nhận notification:**
-```
-=== NEW FRIEND REQUEST ===
-From: ducanh
-Request ID: 1
-========================
-```
-
-#### 6. Chấp nhận lời mời (Client B)
-
-```
-Client B:
-Chọn: 4
-Request ID: 1
-```
-
-**Client A sẽ nhận notification:**
-```
-=== FRIEND REQUEST ACCEPTED ===
-User 'hoang' accepted your friend request!
-==============================
-```
-
-#### 7. Hủy kết bạn (Client A)
-
-```
-Client A:
-Chọn: 6
-Friend username: hoang
-```
-
-**Client B sẽ nhận notification:**
-```
-=== FRIENDSHIP REMOVED ===
-User 'ducanh' removed you as a friend
-========================
-```
-
-## Giao thức chi tiết
-
-### Format chung
-
-```
-COMMAND_TYPE | JSON_DATA
-```
-
-### 1. REGISTER
-
-**Client → Server:**
-```
-REGISTER|{"username": "ducanh", "password": "123456", "email": "test@example.com"}
-```
-
-**Server → Client:**
-```
-RES_REGISTER|{"code": 201, "message": "Account created"}
-```
-
-### 2. LOGIN
-
-**Client → Server:**
-```
-LOGIN|{"username": "ducanh", "password": "123456"}
-```
-
-**Server → Client:**
-```
-RES_LOGIN|{"code": 200, "session_token": "abcxyz123", "user_id": 1}
-```
-
-### 3. FRIEND_INVITE
-
-**Client → Server:**
-```
-FRIEND_INVITE|{"session_token": "abc123", "target_user": "hoang"}
-```
-
-**Server → Client (response):**
-```
-RES_FRIEND_INVITE|{"code": 111, "message": "Friend request sent", "request_id": 1}
-```
-
-**Server → Target User (notification):**
-```
-FRIEND_INVITE_NOTIFICATION|{"code": 300, "from_user": "ducanh", "from_user_id": 1, "request_id": 1, "message": "You have a new friend request"}
-```
-
-### 4. FRIEND_RESPONSE (Accept/Reject)
-
-**Client → Server:**
-```
-FRIEND_RESPONSE|{"session_token": "abc123", "request_id": 1, "accept": true}
-```
-
-**Server → Client (response):**
-```
-RES_FRIEND_RESPONSE|{"code": 112, "message": "Friend request accepted"}
-```
-
-**Server → Requester (notification):**
-```
-FRIEND_ACCEPTED_NOTIFICATION|{"code": 301, "from_user_id": 2, "from_user": "hoang", "message": "Your friend request was accepted"}
-```
-
-### 5. FRIEND_REMOVE
-
-**Client → Server:**
-```
-FRIEND_REMOVE|{"session_token": "abc123", "friend_username": "hoang"}
-```
-
-**Server → Client (response):**
-```
-RES_FRIEND_REMOVE|{"code": 113, "message": "Friend removed"}
-```
-
-**Server → Removed Friend (notification):**
-```
-FRIEND_REMOVED_NOTIFICATION|{"code": 302, "from_user": "ducanh", "from_user_id": 1, "message": "You are no longer friends"}
-```
-
-## Response Codes
-
-| Code | Ý nghĩa |
-|------|---------|
-| 200 | Thành công (Login) |
-| 201 | Tạo thành công (Register) |
-| 111 | Friend request sent |
-| 112 | Friend request accepted |
-| 113 | Friend request declined / Friend removed |
-| 300 | Friend invite notification |
-| 301 | Friend accepted notification |
-| 302 | Friend removed notification |
-| 400 | Missing required fields |
-| 401 | Invalid session / Wrong password |
-| 404 | User not found |
-| 409 | Username already exists |
-| 422 | Invalid username (special characters) |
-| 500 | Unknown error |
-
-## Kiến trúc hệ thống
-
-### Server Side
-
-- **Multi-threaded**: Mỗi client connection chạy trong pthread riêng
-- **File-based Database**: Lưu users, friend requests, friendships trong file .txt
-- **Session Management**: Token-based authentication với timeout
-- **Real-time Notifications**: Push notifications qua socket connection
-
-### Client Side
-
-- **Two-threaded**: 
-  - Main thread: Xử lý input và gửi request
-  - Receive thread (pthread): Lắng nghe notifications từ server
-- **Interactive Console UI**: Menu-driven interface
-
-## Features kỹ thuật
-
-### 1. Stream Processing (Xử lý truyền dòng)
-
-- Gửi độ dài message (4 bytes) trước nội dung
-- Xử lý partial sends/receives
-- Buffer management
-
-### 2. Protocol Design
-
-- Delimiter-based: `COMMAND_TYPE | JSON_DATA`
-- Simple JSON parsing (không dùng external library)
-- Extensible command system
-
-### 3. Concurrency
-
-- Thread-safe file operations
-- Session management với concurrent access
-- Proper cleanup khi client disconnect
-- POSIX threads (pthread)
-
-### 4. Error Handling
-
-- Comprehensive error codes
-- Validation ở multiple layers
-- Graceful degradation
-
-## Testing
-
-### Test case 1: Register & Login
-
-1. Chạy server
-2. Chạy 2 client
-3. Đăng ký 2 tài khoản khác nhau
-4. Đăng nhập cả 2
-
-**Expected**: Cả 2 đều nhận được session token
-
-### Test case 2: Friend Request Flow
-
-1. Client A gửi friend request cho B
-2. Client B nhận notification
-3. Client B accept
-4. Client A nhận notification
-
-**Expected**: Cả 2 trở thành friends
-
-### Test case 3: Concurrent Requests
-
-1. Client A và B cùng gửi friend request cho nhau
-2. Cả 2 accept
-
-**Expected**: Chỉ tạo 1 friendship duy nhất
-
-### Test case 4: Invalid Operations
-
-1. Gửi friend request mà không login
-2. Accept request không tồn tại
-3. Remove friend chưa kết bạn
-
-**Expected**: Nhận error codes phù hợp
-
-## Mở rộng (dành cho bạn của bạn)
-
-Các chức năng còn lại cần implement (8-17):
-- Lấy danh sách sự kiện
-- Tạo/sửa/xóa sự kiện
-- Gửi lời mời tham gia sự kiện
-- Chấp nhận lời mời
-- Yêu cầu tham gia sự kiện public
-- Chấp nhận yêu cầu tham gia
-- Ghi log hoạt động
-- Hiển thị danh sách bạn bè
-
-### Gợi ý implementation:
-
-1. Thêm Event structure vào `file_db.h`
-2. Thêm command types mới vào `protocol.h`
-3. Implement handlers tương tự như friend handlers
-4. Thêm menu options vào client
-5. Tạo file `data/events.txt` để lưu events
-
-## File Database Format
-
-### users.txt
-```
-user_id|username|password|email|is_active
-1|ducanh|123456|ducanh@example.com|1
-2|hoang|123456|hoang@example.com|1
-```
-
-### friend_requests.txt
-```
-request_id|from_user_id|to_user_id|status|created_at
-1|1|2|0|1732611234
-```
-- status: 0 = pending, 1 = accepted, 2 = rejected
-
-### friendships.txt
-```
-user1_id|user2_id|created_at
-1|2|1732611345
-```
-
-## Troubleshooting
-
-### Lỗi: "Permission denied" khi chạy
-```bash
-chmod +x build/server
-chmod +x build/client
-```
-
-### Lỗi: "Address already in use"
-- Port 8888 đang bị sử dụng
-- Đợi vài giây hoặc kill process đang dùng port
-```bash
-sudo lsof -i :8888
-sudo kill -9 <PID>
-```
-
-### Lỗi: "Connection refused"
-- Đảm bảo server đang chạy
-- Kiểm tra firewall settings
-```bash
-sudo ufw allow 8888
-```
-
-### Client không nhận notification
-- Đảm bảo đã login thành công
-- Kiểm tra receive thread đang chạy
-- Xem server logs
-
-### Lỗi compilation
-```bash
-# Cài đặt build tools
-sudo apt update
-sudo apt install build-essential
-```
-
-## Tác giả
-
-- Sinh viên IT4062
-- Năm học: 2025
-
-## License
-
-Educational project - IT4062 Network Programming
 
 ---
 
-**Chúc bạn code thành công! 🚀**
+
+## 5. 🔍 Đặc tả các giao thức
+
+### **Message Format**
+```
+COMMAND|JSON_DATA\r\n
+```
+
+### **Supported Commands**
+
+| Command | Direction | Mô tả |
+|---------|-----------|-------|
+| `REGISTER` | Client → Server | Đăng ký tài khoản |
+| `RES_REGISTER` | Server → Client | Response đăng ký |
+| `LOGIN` | Client → Server | Đăng nhập |
+| `RES_LOGIN` | Server → Client | Response đăng nhập |
+| `LOGOUT` | Client → Server | Đăng xuất |
+| `RES_LOGOUT` | Server → Client | Response đăng xuất |
+
+### **Response Codes**
+
+| Code | Meaning | Context |
+|------|---------|---------|
+| 100 | Registration success | REGISTER |
+| 200 | Login/Logout success | LOGIN, LOGOUT |
+| 400 | Bad request | Invalid JSON or missing fields |
+| 401 | Unauthorized | Wrong password, invalid session |
+| 404 | Not found | User not found |
+| 409 | Conflict | Username exists, already logged in |
+| 500 | Server error | Internal error |
+| 503 | Service unavailable | Server full (>1000 sessions) |
+
+---
+
+
+
+## 6.  Tài liệu tham khảo
+
+- **cJSON:** https://github.com/DaveGamble/cJSON
+- **MultiThreading:** Slide môn học
+
+---
+

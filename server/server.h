@@ -19,12 +19,7 @@ typedef struct {
 // Handler functions
 void handle_register(ServerContext* ctx, int client_sock, const char* json_data);
 void handle_login(ServerContext* ctx, int client_sock, const char* json_data);
-void handle_friend_invite(ServerContext* ctx, int client_sock, const char* json_data);
-void handle_friend_response(ServerContext* ctx, int client_sock, const char* json_data);
-void handle_friend_remove(ServerContext* ctx, int client_sock, const char* json_data);
+void handle_logout(ServerContext* ctx, int client_sock, const char* json_data);
 void handle_client_message(ServerContext* ctx, int client_sock, Message* msg);
-
-// Helper functions
-void send_notification(int sock, const char* command, const char* json_data);
 
 #endif // SERVER_H
