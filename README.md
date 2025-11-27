@@ -1,6 +1,6 @@
 # TCP Socket Server Project
 
-**Đồ án môn Lập trình mạng - IT4062**
+**Bài tập lớn môn Lập trình mạng - IT4062**
 
 ---
 
