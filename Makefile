@@ -12,12 +12,12 @@ BUILD_DIR = build
 DATA_DIR = data
 
 # Source files
-COMMON_SRC = $(COMMON_DIR)/protocol.c $(COMMON_DIR)/cJSON.c
+COMMON_SRC = $(COMMON_DIR)/protocol.c
 SERVER_SRC = $(SERVER_DIR)/server.c $(SERVER_DIR)/file_db.c $(SERVER_DIR)/session.c
 CLIENT_SRC = $(CLIENT_DIR)/client.c
 
 # Object files
-COMMON_OBJ = $(BUILD_DIR)/protocol.o $(BUILD_DIR)/cJSON.o
+COMMON_OBJ = $(BUILD_DIR)/protocol.o
 SERVER_OBJ = $(BUILD_DIR)/server_main.o $(BUILD_DIR)/file_db.o $(BUILD_DIR)/session.o
 CLIENT_OBJ = $(BUILD_DIR)/client_main.o
 
@@ -48,9 +48,6 @@ $(CLIENT_EXE): $(COMMON_OBJ) $(CLIENT_OBJ)
 
 # Compile common sources
 $(BUILD_DIR)/protocol.o: $(COMMON_DIR)/protocol.c $(COMMON_DIR)/protocol.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/cJSON.o: $(COMMON_DIR)/cJSON.c $(COMMON_DIR)/cJSON.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile server sources

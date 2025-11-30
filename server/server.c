@@ -8,244 +8,152 @@
 #include <arpa/inet.h>
 #include "server.h"
 #include "../common/protocol.h"
-#include "../common/cJSON.h"
 
 #define PORT 8888
 #define MAX_CLIENTS 100
 
 SessionManager sm;
 
-// Handle REGISTER command
-void handle_register(ServerContext* ctx, int client_sock, const char* json_data) {
-    cJSON *request = cJSON_Parse(json_data);
-    cJSON *response_json = NULL;
-    char *response = NULL;
-    
-    if (request == NULL) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 400);
-        cJSON_AddStringToObject(response_json, "message", "Invalid JSON");
-        response = cJSON_PrintUnformatted(response_json);
-        send_message(client_sock, CMD_RES_REGISTER, response);
-        free(response);
-        cJSON_Delete(response_json);
+// Handle REGISTER 
+void handle_register(ServerContext* ctx, int client_sock, Request* req) {
+    // REGISTER|username|password|email
+    if (req->field_count != 3) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
     
-    cJSON *username_item = cJSON_GetObjectItem(request, "username");
-    cJSON *password_item = cJSON_GetObjectItem(request, "password");
-    cJSON *email_item = cJSON_GetObjectItem(request, "email");
+    const char* username = req->fields[0];
+    const char* password = req->fields[1];
+    const char* email = req->fields[2];
     
-    // Validate required fields
-    if (!cJSON_IsString(username_item) || !cJSON_IsString(password_item) || !cJSON_IsString(email_item)) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 400);
-        cJSON_AddStringToObject(response_json, "message", "Missing required fields");
-        response = cJSON_PrintUnformatted(response_json);
-        send_message(client_sock, CMD_RES_REGISTER, response);
-        free(response);
-        cJSON_Delete(response_json);
-        cJSON_Delete(request);
+    // Validate username for special characters
+    if (!db_validate_username(username)) {
+        send_response(client_sock, RESPONSE_UNPROCESSABLE, "Username contains special characters", NULL);
+        printf("[REGISTER] Failed - Username '%s' contains special characters\n", username);
         return;
     }
     
-    const char *username = username_item->valuestring;
-    const char *password = password_item->valuestring;
-    const char *email = email_item->valuestring;
+    // Validate email format
+    if (!db_validate_email(email)) {
+        send_response(client_sock, RESPONSE_UNPROCESSABLE, "Invalid email format", NULL);
+        printf("[REGISTER] Failed - Invalid email format: %s\n", email);
+        return;
+    }
     
     // Create user
     int user_id = db_create_user(username, password, email);
     
-    response_json = cJSON_CreateObject();
-    
     if (user_id > 0) {
-        // Success
-        cJSON_AddNumberToObject(response_json, "code", 201);
-        cJSON_AddStringToObject(response_json, "message", "Account created");
+       
+        send_response(client_sock, RESPONSE_OK, "Registration successful", NULL);
         printf("[REGISTER] User '%s' created successfully (ID: %d)\n", username, user_id);
     } else if (user_id == -2) {
-        // Username exists
-        cJSON_AddNumberToObject(response_json, "code", 409);
-        cJSON_AddStringToObject(response_json, "message", "Username already exists");
+        
+        send_response(client_sock, RESPONSE_CONFLICT, "Username already exists", NULL);
         printf("[REGISTER] Failed - Username '%s' already exists\n", username);
     } else if (user_id == -3) {
-        // Invalid username
-        cJSON_AddNumberToObject(response_json, "code", 422);
-        cJSON_AddStringToObject(response_json, "message", "Username contains invalid characters");
+       
+        send_response(client_sock, RESPONSE_UNPROCESSABLE, "Username contains special characters", NULL);
         printf("[REGISTER] Failed - Invalid username '%s'\n", username);
+    } else if (user_id == -4) {
+       
+        send_response(client_sock, RESPONSE_UNPROCESSABLE, "Invalid email format", NULL);
+        printf("[REGISTER] Failed - Invalid email '%s'\n", email);
     } else {
-        // Unknown error
-        cJSON_AddNumberToObject(response_json, "code", 500);
-        cJSON_AddStringToObject(response_json, "message", "Unknown error occurred");
+        
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         printf("[REGISTER] Failed - Unknown error\n");
     }
-    
-    response = cJSON_PrintUnformatted(response_json);
-    send_message(client_sock, CMD_RES_REGISTER, response);
-    
-    free(response);
-    cJSON_Delete(response_json);
-    cJSON_Delete(request);
 }
 
-// Handle LOGIN command
-void handle_login(ServerContext* ctx, int client_sock, const char* json_data) {
-    cJSON *request = cJSON_Parse(json_data);
-    cJSON *response_json = NULL;
-    char *response = NULL;
-    
-    if (request == NULL) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 400);
-        cJSON_AddStringToObject(response_json, "message", "Invalid JSON");
-        response = cJSON_PrintUnformatted(response_json);
-        send_message(client_sock, CMD_RES_LOGIN, response);
-        free(response);
-        cJSON_Delete(response_json);
+// Handle LOGIN 
+void handle_login(ServerContext* ctx, int client_sock, Request* req) {
+    // LOGIN|username|password
+    if (req->field_count != 2) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
     
-    cJSON *username_item = cJSON_GetObjectItem(request, "username");
-    cJSON *password_item = cJSON_GetObjectItem(request, "password");
-    
-    if (!cJSON_IsString(username_item) || !cJSON_IsString(password_item)) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 400);
-        cJSON_AddStringToObject(response_json, "message", "Missing required fields");
-        response = cJSON_PrintUnformatted(response_json);
-        send_message(client_sock, CMD_RES_LOGIN, response);
-        free(response);
-        cJSON_Delete(response_json);
-        cJSON_Delete(request);
-        return;
-    }
-    
-    const char *username = username_item->valuestring;
-    const char *password = password_item->valuestring;
+    const char* username = req->fields[0];
+    const char* password = req->fields[1];
     
     User* user = db_find_user_by_username(username);
     
-    response_json = cJSON_CreateObject();
-    
-    if (user == NULL) {
-        // User not found
-        cJSON_AddNumberToObject(response_json, "code", 404);
-        cJSON_AddStringToObject(response_json, "message", "User not found");
-        printf("[LOGIN] Failed - User '%s' not found\n", username);
-    } else if (!db_verify_password(username, password)) {
-        // Wrong password
-        cJSON_AddNumberToObject(response_json, "code", 401);
-        cJSON_AddStringToObject(response_json, "message", "Wrong password");
-        printf("[LOGIN] Failed - Wrong password for user '%s'\n", username);
-    } else if (session_is_user_logged_in(ctx->sm, user->user_id, client_sock)) {
-        // User already logged in on another client (từ bài cũ)
-        cJSON_AddNumberToObject(response_json, "code", 409);
-        cJSON_AddStringToObject(response_json, "message", "Account is already logged in on another client");
-        printf("[LOGIN] Failed - User '%s' already logged in elsewhere\n", username);
-    } else {
-        // Login successful
-        char* token = session_create(ctx->sm, user->user_id, client_sock);
-        
-        if (token == NULL) {
-            // Server full (no available session slots)
-            cJSON_AddNumberToObject(response_json, "code", 503);
-            cJSON_AddStringToObject(response_json, "message", "Server full, please try again later");
-            printf("[LOGIN] Failed - No available session slots\n");
-        } else {
-            cJSON_AddNumberToObject(response_json, "code", 200);
-            cJSON_AddStringToObject(response_json, "session_token", token);
-            cJSON_AddNumberToObject(response_json, "user_id", user->user_id);
-            printf("[LOGIN] User '%s' logged in successfully (ID: %d)\n", username, user->user_id);
-        }
+    if (user == NULL || !db_verify_password(username, password)) {
+        // User not found or wrong password
+        send_response(client_sock, RESPONSE_BAD_REQUEST, "Invalid username or password", NULL);
+        printf("[LOGIN] Failed - Invalid credentials for user '%s'\n", username);
+        return;
     }
     
-    response = cJSON_PrintUnformatted(response_json);
-    send_message(client_sock, CMD_RES_LOGIN, response);
+    // Check if user already logged in
+    if (session_is_user_logged_in(ctx->sm, user->user_id, client_sock)) {
+        send_response(client_sock, RESPONSE_BAD_REQUEST, "Invalid username or password", NULL);
+        printf("[LOGIN] Failed - User '%s' already logged in elsewhere\n", username);
+        return;
+    }
     
-    free(response);
-    cJSON_Delete(response_json);
-    cJSON_Delete(request);
+    // Create session
+    char* token = session_create(ctx->sm, user->user_id, client_sock);
+    
+    if (token == NULL) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[LOGIN] Failed - No available session slots\n");
+        return;
+    }
+    
+   
+    send_response(client_sock, RESPONSE_OK, "Login successful", token);
+    printf("[LOGIN] User '%s' logged in successfully (ID: %d, Session: %s)\n", username, user->user_id, token);
 }
 
-// Handle LOGOUT command
-void handle_logout(ServerContext* ctx, int client_sock, const char* json_data) {
-    cJSON *request = cJSON_Parse(json_data);
-    cJSON *response_json = NULL;
-    char *response = NULL;
-    
-    if (request == NULL) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 400);
-        cJSON_AddStringToObject(response_json, "message", "Invalid JSON");
-        response = cJSON_PrintUnformatted(response_json);
-        send_message(client_sock, CMD_RES_LOGOUT, response);
-        free(response);
-        cJSON_Delete(response_json);
+// Handle LOGOUT 
+void handle_logout(ServerContext* ctx, int client_sock, Request* req) {
+    // LOGOUT|session_id
+    if (req->field_count != 1) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
     
-    cJSON *token_item = cJSON_GetObjectItem(request, "session_token");
+    const char* session_id = req->fields[0];
     
-    if (!cJSON_IsString(token_item)) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 400);
-        cJSON_AddStringToObject(response_json, "message", "Missing session token");
-        response = cJSON_PrintUnformatted(response_json);
-        send_message(client_sock, CMD_RES_LOGOUT, response);
-        free(response);
-        cJSON_Delete(response_json);
-        cJSON_Delete(request);
-        return;
-    }
-    
-    const char *token = token_item->valuestring;
-    
-    // Find session to get user info before destroying
-    Session* session = session_find_by_token(ctx->sm, token);
+    // Find session
+    Session* session = session_find_by_token(ctx->sm, session_id);
     
     if (session == NULL) {
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 401);
-        cJSON_AddStringToObject(response_json, "message", "Invalid session");
-        printf("[LOGOUT] Failed - Invalid session token\n");
-    } else {
-        int user_id = session->user_id;
-        User* user = db_find_user_by_id(user_id);
-        
-        // Destroy session
-        session_destroy(ctx->sm, token);
-        
-        response_json = cJSON_CreateObject();
-        cJSON_AddNumberToObject(response_json, "code", 200);
-        cJSON_AddStringToObject(response_json, "message", "Logout successful");
-        
-        if (user) {
-            printf("[LOGOUT] User '%s' logged out successfully (ID: %d)\n", user->username, user_id);
-        } else {
-            printf("[LOGOUT] User ID %d logged out successfully\n", user_id);
-        }
+        send_response(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
+        printf("[LOGOUT] Failed - Invalid session ID\n");
+        return;
     }
     
-    response = cJSON_PrintUnformatted(response_json);
-    send_message(client_sock, CMD_RES_LOGOUT, response);
+    int user_id = session->user_id;
+    User* user = db_find_user_by_id(user_id);
     
-    free(response);
-    cJSON_Delete(response_json);
-    cJSON_Delete(request);
+    // Destroy session
+    session_destroy(ctx->sm, session_id);
+    
+    send_response(client_sock, RESPONSE_OK, "Logout successful", NULL);
+    
+    if (user) {
+        printf("[LOGOUT] User '%s' logged out successfully (ID: %d)\n", user->username, user_id);
+    } else {
+        printf("[LOGOUT] User ID %d logged out successfully\n", user_id);
+    }
 }
 
-// Handle incoming client messages
-void handle_client_message(ServerContext* ctx, int client_sock, Message* msg) {
-    printf("[MESSAGE] Received command: %s\n", msg->command);
+// Handle incoming client requests
+void handle_client_request(ServerContext* ctx, int client_sock, Request* req) {
+    printf("[REQUEST] Received command: %s\n", req->command);
     
-    if (strcmp(msg->command, CMD_REGISTER) == 0) {
-        handle_register(ctx, client_sock, msg->json_data);
-    } else if (strcmp(msg->command, CMD_LOGIN) == 0) {
-        handle_login(ctx, client_sock, msg->json_data);
-    } else if (strcmp(msg->command, CMD_LOGOUT) == 0) {
-        handle_logout(ctx, client_sock, msg->json_data);
+    if (strcmp(req->command, CMD_REGISTER) == 0) {
+        handle_register(ctx, client_sock, req);
+    } else if (strcmp(req->command, CMD_LOGIN) == 0) {
+        handle_login(ctx, client_sock, req);
+    } else if (strcmp(req->command, CMD_LOGOUT) == 0) {
+        handle_logout(ctx, client_sock, req);
     } else {
-        printf("[ERROR] Unknown command: %s\n", msg->command);
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[ERROR] Unknown command: %s\n", req->command);
     }
 }
 
@@ -254,7 +162,7 @@ void* client_thread(void* arg) {
     int client_sock = *(int*)arg;
     free(arg);
     
-    Message msg;
+    Request req;
     ServerContext ctx;
     
     ctx.sm = &sm;
@@ -262,15 +170,15 @@ void* client_thread(void* arg) {
     
     printf("[CLIENT] New client connected (socket: %d)\n", client_sock);
     
-    // Handle client messages
+    // Handle client requests
     while (1) {
-        int result = receive_message(client_sock, &msg);
+        int result = receive_request(client_sock, &req);
         if (result <= 0) {
             printf("[CLIENT] Client disconnected (socket: %d)\n", client_sock);
             break;
         }
         
-        handle_client_message(&ctx, client_sock, &msg);
+        handle_client_request(&ctx, client_sock, &req);
     }
     
     // Cleanup session when client disconnects
@@ -298,7 +206,6 @@ int main() {
     printf("[DATABASE] File-based database initialized\n");
     printf("[SESSION] Session manager initialized\n");
     
-  
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock < 0) {
         perror("Socket creation failed");
@@ -313,20 +220,17 @@ int main() {
         return 1;
     }
     
-   
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT);
     
-
     if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
         close(server_sock);
         return 1;
     }
     
- 
     if (listen(server_sock, MAX_CLIENTS) < 0) {
         perror("Listen failed");
         close(server_sock);
@@ -336,7 +240,6 @@ int main() {
     printf("[SERVER] Listening on port %d\n", PORT);
     printf("[SERVER] Waiting for connections...\n\n");
     
-
     while (1) {
         client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_addr_len);
         if (client_sock < 0) {
@@ -344,7 +247,6 @@ int main() {
             continue;
         }
         
- 
         pthread_t thread;
         int* client_sock_ptr = malloc(sizeof(int));
         *client_sock_ptr = client_sock;
@@ -354,11 +256,10 @@ int main() {
             close(client_sock);
             free(client_sock_ptr);
         } else {
-            pthread_detach(thread); 
+            pthread_detach(thread);
         }
     }
     
-
     close(server_sock);
     db_cleanup();
     return 0;

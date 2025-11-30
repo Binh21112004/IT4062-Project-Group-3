@@ -28,10 +28,32 @@ int db_validate_username(const char* username) {
         return 0;
     }
     
+    // Check for special characters (except underscore)
     for (int i = 0; username[i] != '\0'; i++) {
-        if (!isalnum(username[i]) && username[i] != '_') {
+        char c = username[i];
+        if (c == '!' || c == '@' || c == '#' || c == '$' || c == '%' || 
+            c == '^' || c == '&' || c == '*' || c == '(' || c == ')') {
             return 0;
         }
+    }
+    
+    return 1;
+}
+
+// Validate email format (basic check for @ and .)
+int db_validate_email(const char* email) {
+    if (email == NULL || strlen(email) == 0) {
+        return 0;
+    }
+    
+    const char* at = strchr(email, '@');
+    if (at == NULL || at == email) {
+        return 0;  // No @ or @ at the beginning
+    }
+    
+    const char* dot = strchr(at, '.');
+    if (dot == NULL || dot == at + 1 || dot[1] == '\0') {
+        return 0;  // No . after @ or . right after @ or . at the end
     }
     
     return 1;
@@ -60,6 +82,11 @@ int db_create_user(const char* username, const char* password, const char* email
     // Validate username
     if (!db_validate_username(username)) {
         return -3; // Invalid username
+    }
+    
+    // Validate email
+    if (!db_validate_email(email)) {
+        return -4; // Invalid email format
     }
     
     // Check if username already exists
