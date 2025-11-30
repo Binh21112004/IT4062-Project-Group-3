@@ -6,18 +6,17 @@ int send_request(int sock, const char* command, char fields[][MAX_FIELD], int fi
     char buffer[MAX_BUFFER];
     int pos = 0;
     
-    // Add command
     pos += snprintf(buffer + pos, MAX_BUFFER - pos, "%s", command);
     
-    // Add fields
+
     for (int i = 0; i < field_count && pos < MAX_BUFFER - 2; i++) {
         pos += snprintf(buffer + pos, MAX_BUFFER - pos, "|%s", fields[i]);
     }
     
-    // Add delimiter
+
     pos += snprintf(buffer + pos, MAX_BUFFER - pos, "\r\n");
     
-    // Send
+   
     int sent = 0;
     while (sent < pos) {
         int n = send(sock, buffer + sent, pos - sent, 0);
@@ -33,7 +32,7 @@ int send_request(int sock, const char* command, char fields[][MAX_FIELD], int fi
     return sent;
 }
 
-// Receive request on server side
+
 int receive_request(int sock, Request* req) {
     char buffer[MAX_BUFFER];
     char recv_buff[256];
@@ -42,7 +41,7 @@ int receive_request(int sock, Request* req) {
     
     buffer[0] = '\0';
     
-    // Receive until \r\n delimiter is found
+ 
     while (strstr(buffer, "\r\n") == NULL) {
         if (total_len >= MAX_BUFFER - 1) {
             fprintf(stderr, "[ERROR] Buffer overflow\n");
@@ -67,7 +66,7 @@ int receive_request(int sock, Request* req) {
         }
     }
     
-    // Remove \r\n delimiter
+    
     char* delimiter = strstr(buffer, "\r\n");
     if (delimiter != NULL) {
         *delimiter = '\0';
@@ -107,7 +106,7 @@ int send_response(int sock, int code, const char* message, const char* extra_dat
         pos = snprintf(buffer, MAX_BUFFER, "%d|%s\r\n", code, message);
     }
     
-    // Send
+
     int sent = 0;
     while (sent < pos) {
         int n = send(sock, buffer + sent, pos - sent, 0);
@@ -123,7 +122,7 @@ int send_response(int sock, int code, const char* message, const char* extra_dat
     return sent;
 }
 
-// Receive response on client side
+
 int receive_response(int sock, Response* res) {
     char buffer[MAX_BUFFER];
     char recv_buff[256];
@@ -132,7 +131,7 @@ int receive_response(int sock, Response* res) {
     
     buffer[0] = '\0';
     
-    // Receive until \r\n delimiter is found
+    
     while (strstr(buffer, "\r\n") == NULL) {
         if (total_len >= MAX_BUFFER - 1) {
             fprintf(stderr, "[ERROR] Buffer overflow\n");
@@ -157,7 +156,7 @@ int receive_response(int sock, Response* res) {
         }
     }
     
-    // Remove \r\n delimiter
+    
     char* delimiter = strstr(buffer, "\r\n");
     if (delimiter != NULL) {
         *delimiter = '\0';
