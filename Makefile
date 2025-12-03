@@ -1,8 +1,8 @@
 # Makefile for TCP Socket Project (Linux/Ubuntu)
 
 CC = gcc
-CFLAGS = -Wall -Wextra -I. -pthread
-LDFLAGS = -pthread
+CFLAGS = -Wall -Wextra -I. -I/usr/include/postgresql -pthread
+LDFLAGS = -pthread -lpq
 
 # Directories
 SERVER_DIR = server
@@ -13,12 +13,12 @@ DATA_DIR = data
 
 # Source files
 COMMON_SRC = $(COMMON_DIR)/protocol.c
-SERVER_SRC = $(SERVER_DIR)/server.c $(SERVER_DIR)/file_db.c $(SERVER_DIR)/session.c
+SERVER_SRC = $(SERVER_DIR)/server.c $(SERVER_DIR)/postgres_db.c $(SERVER_DIR)/session.c $(SERVER_DIR)/config.c
 CLIENT_SRC = $(CLIENT_DIR)/client.c
 
 # Object files
 COMMON_OBJ = $(BUILD_DIR)/protocol.o
-SERVER_OBJ = $(BUILD_DIR)/server_main.o $(BUILD_DIR)/file_db.o $(BUILD_DIR)/session.o
+SERVER_OBJ = $(BUILD_DIR)/server_main.o $(BUILD_DIR)/postgres_db.o $(BUILD_DIR)/session.o $(BUILD_DIR)/config.o
 CLIENT_OBJ = $(BUILD_DIR)/client_main.o
 
 # Executables
@@ -54,10 +54,13 @@ $(BUILD_DIR)/protocol.o: $(COMMON_DIR)/protocol.c $(COMMON_DIR)/protocol.h
 $(BUILD_DIR)/server_main.o: $(SERVER_DIR)/server.c $(SERVER_DIR)/server.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/file_db.o: $(SERVER_DIR)/file_db.c $(SERVER_DIR)/file_db.h
+$(BUILD_DIR)/postgres_db.o: $(SERVER_DIR)/postgres_db.c $(SERVER_DIR)/postgres_db.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/session.o: $(SERVER_DIR)/session.c $(SERVER_DIR)/session.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/config.o: $(SERVER_DIR)/config.c $(SERVER_DIR)/config.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Compile client sources

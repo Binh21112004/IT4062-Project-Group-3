@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "../common/protocol.h"
-#include "file_db.h"
+#include "postgres_db.h"
 #include "session.h"
 
 #define PORT 8888

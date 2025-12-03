@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "server.h"
+#include "config.h"
 #include "../common/protocol.h"
 
 #define PORT 8888
@@ -78,24 +79,33 @@ void handle_login(ServerContext* ctx, int client_sock, char** fields, int field_
     const char* username = fields[0];
     const char* password = fields[1];
     
-    User* user = db_find_user_by_username(username);
-    
-    if (user == NULL || !db_verify_password(username, password)) {
-        // User not found or wrong password
+    // Verify password first
+    if (!db_verify_password(username, password)) {
         send_response(client_sock, RESPONSE_BAD_REQUEST, "Invalid username or password", NULL);
         printf("[LOGIN] Failed - Invalid credentials for user '%s'\n", username);
         return;
     }
     
+    // Get user info
+    int user_id;
+    char email[MAX_EMAIL];
+    int is_active;
+    
+    if (db_find_user_by_username(username, &user_id, email, sizeof(email), &is_active) <= 0 || !is_active) {
+        send_response(client_sock, RESPONSE_BAD_REQUEST, "Invalid username or password", NULL);
+        printf("[LOGIN] Failed - User '%s' not found or inactive\n", username);
+        return;
+    }
+    
     // Check if user already logged in
-    if (session_is_user_logged_in(ctx->sm, user->user_id, client_sock)) {
+    if (session_is_user_logged_in(ctx->sm, user_id, client_sock)) {
         send_response(client_sock, RESPONSE_BAD_REQUEST, "Invalid username or password", NULL);
         printf("[LOGIN] Failed - User '%s' already logged in elsewhere\n", username);
         return;
     }
     
     // Create session
-    char* token = session_create(ctx->sm, user->user_id, client_sock);
+    char* token = session_create(ctx->sm, user_id, client_sock);
     
     if (token == NULL) {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
@@ -105,7 +115,7 @@ void handle_login(ServerContext* ctx, int client_sock, char** fields, int field_
     
    
     send_response(client_sock, RESPONSE_OK, "Login successful", token);
-    printf("[LOGIN] User '%s' logged in successfully (ID: %d, Session: %s)\n", username, user->user_id, token);
+    printf("[LOGIN] User '%s' logged in successfully (ID: %d, Session: %s)\n", username, user_id, token);
 }
 
 // Handle LOGOUT 
@@ -128,15 +138,20 @@ void handle_logout(ServerContext* ctx, int client_sock, char** fields, int field
     }
     
     int user_id = session->user_id;
-    User* user = db_find_user_by_id(user_id);
+    
+    // Get username for logging
+    char username[MAX_USERNAME];
+    char email[MAX_EMAIL];
+    int is_active;
+    int found = db_find_user_by_id(user_id, username, sizeof(username), email, sizeof(email), &is_active);
     
     // Destroy session
     session_destroy(ctx->sm, session_id);
     
     send_response(client_sock, RESPONSE_OK, "Logout successful", NULL);
     
-    if (user) {
-        printf("[LOGOUT] User '%s' logged out successfully (ID: %d)\n", user->username, user_id);
+    if (found > 0) {
+        printf("[LOGOUT] User '%s' logged out successfully (ID: %d)\n", username, user_id);
     } else {
         printf("[LOGOUT] User ID %d logged out successfully\n", user_id);
     }
@@ -215,10 +230,26 @@ int main() {
     printf("=== TCP Socket Server ===\n");
     printf("Initializing...\n");
     
-    // Initialize database and session manager
-    db_init();
+    // Load database configuration
+    DatabaseConfig db_config;
+    if (config_load_database("config/database.conf", &db_config) < 0) {
+        fprintf(stderr, "Failed to load database configuration\n");
+        return 1;
+    }
+    
+    // Build connection string and initialize PostgreSQL database
+    char* conninfo = config_build_conninfo(&db_config);
+    printf("[CONFIG] Connecting to database: %s@%s:%s/%s\n", 
+           db_config.user, db_config.host, db_config.port, db_config.dbname);
+    
+    if (db_init(conninfo) < 0) {
+        fprintf(stderr, "Failed to initialize database\n");
+        return 1;
+    }
+    
+    // Initialize session manager
     session_init(&sm);
-    printf("[DATABASE] File-based database initialized\n");
+    printf("[DATABASE] PostgreSQL database connected successfully\n");
     printf("[SESSION] Session manager initialized\n");
     
     server_sock = socket(AF_INET, SOCK_STREAM, 0);

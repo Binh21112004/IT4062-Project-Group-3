@@ -2,7 +2,7 @@
 #define SESSION_H
 
 #include <time.h>
-#include "file_db.h"
+#include "postgres_db.h"
 
 #define MAX_SESSIONS 1000
 #define SESSION_TIMEOUT 3600 
