@@ -9,31 +9,66 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define MAX_BUFFER 4096
+#define MAX_BUFFER 65536  // 64KB - Đủ lớn cho danh sách bạn bè, events, etc
 #define MAX_COMMAND 64
-#define MAX_JSON 4000
+#define MAX_FIELD 256
 #define MAX_USERNAME 50
 #define MAX_PASSWORD 50
 #define MAX_EMAIL 100
-#define MAX_TOKEN 64
+#define MAX_SESSION_ID 64
 
 // Command types
 #define CMD_REGISTER "REGISTER"
-#define CMD_RES_REGISTER "RES_REGISTER"
 #define CMD_LOGIN "LOGIN"
-#define CMD_RES_LOGIN "RES_LOGIN"
 #define CMD_LOGOUT "LOGOUT"
-#define CMD_RES_LOGOUT "RES_LOGOUT"
 
-// Message structure
-typedef struct {
-    char command[MAX_COMMAND];
-    char json_data[MAX_JSON];
-} Message;
+// Response codes
+#define RESPONSE_OK 200
+#define RESPONSE_BAD_REQUEST 400
+#define RESPONSE_UNAUTHORIZED 401
+#define RESPONSE_CONFLICT 409
+#define RESPONSE_UNPROCESSABLE 422 // sai về định dạng mail, tên chứa kí tự đặc biệt
+#define RESPONSE_SERVER_ERROR 500
 
+// Protocol functions - Xử lý protocol bằng chuỗi với cấp phát động
 
-int send_message(int sock, const char* command, const char* json_data);
-int receive_message(int sock, Message* msg);
+// Low-level functions - Gửi/nhận chuỗi thô qua socket
+// send_message: Gửi chuỗi đã format sẵn qua socket (đảm bảo gửi hết)
+int send_message(int sock, const char* message);
 
+// receive_message: Nhận chuỗi từ socket đến khi gặp \r\n (loại bỏ \r\n)
+int receive_message(int sock, char* buffer, int buffer_size);
+
+// Client functions - Gửi request và nhận response
+// send_request: Gửi request với số lượng fields tùy ý
+//   - Tự động cấp phát buffer động theo kích thước cần thiết
+//   - Format: COMMAND|FIELD1|FIELD2|...\r\n
+//   - Tự động free buffer sau khi gửi
+int send_request(int sock, const char* command, const char** fields, int field_count);
+
+// receive_response: Nhận response từ server
+//   - Parse response: CODE|MESSAGE|EXTRA_DATA\r\n
+//   - extra_data được cấp phát động (có thể rất lớn, dùng cho danh sách...)
+//   - Trả về: con trỏ tới extra_data (hoặc NULL nếu không có)
+//   - QUAN TRỌNG: Caller phải free(extra_data) sau khi dùng!
+char* receive_response(int sock, int* code, char* message, int message_size);
+
+// Server functions - Gửi response và parse request
+// send_response: Gửi response tới client
+//   - Tự động cấp phát buffer động
+//   - Format: CODE|MESSAGE|EXTRA_DATA\r\n (hoặc CODE|MESSAGE\r\n nếu không có extra_data)
+//   - extra_data có thể rất lớn (danh sách bạn bè, events, etc.)
+//   - Tự động free buffer sau khi gửi
+int send_response(int sock, int code, const char* message, const char* extra_data);
+
+// parse_request: Parse chuỗi request thành command và fields (cấp phát động)
+//   - Format input: COMMAND|FIELD1|FIELD2|...
+//   - Tự động cấp phát mảng fields động (không giới hạn số lượng)
+//   - Trả về: mảng con trỏ tới các fields (caller phải free)
+//   - QUAN TRỌNG: Caller phải gọi free_fields() sau khi dùng!
+char** parse_request(const char* buffer, char* command, int* field_count);
+
+// free_fields: Giải phóng mảng fields được cấp phát từ parse_request
+void free_fields(char** fields, int field_count);
 
 #endif 

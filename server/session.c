@@ -31,7 +31,7 @@ char* session_create(SessionManager* sm, int user_id, int client_socket) {
     pthread_mutex_lock(&session_mutex);
     
     if (sm->session_count >= MAX_SESSIONS) {
-        // Cleanup expired sessions 
+        
         time_t now = time(NULL);
         for (int i = 0; i < sm->session_count; i++) {
             if (sm->sessions[i].is_active) {
@@ -81,22 +81,6 @@ Session* session_find_by_token(SessionManager* sm, const char* token) {
     
     for (int i = 0; i < sm->session_count; i++) {
         if (sm->sessions[i].is_active && strcmp(sm->sessions[i].token, token) == 0) {
-            result = &sm->sessions[i];
-            break;
-        }
-    }
-    
-    pthread_mutex_unlock(&session_mutex);
-    return result;
-}
-
-// Find session by user ID
-Session* session_find_by_user_id(SessionManager* sm, int user_id) {
-    pthread_mutex_lock(&session_mutex);
-    Session* result = NULL;
-    
-    for (int i = 0; i < sm->session_count; i++) {
-        if (sm->sessions[i].is_active && sm->sessions[i].user_id == user_id) {
             result = &sm->sessions[i];
             break;
         }
