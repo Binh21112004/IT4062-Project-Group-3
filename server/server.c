@@ -15,23 +15,24 @@
 SessionManager sm;
 
 // Handle REGISTER 
-void handle_register(ServerContext* ctx, int client_sock, Request* req) {
+void handle_register(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    (void)ctx;  // Tránh warning unused parameter
     // REGISTER|username|password|email
-    if (req->field_count != 3) {
+    if (field_count != 3) {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
     
-    const char* username = req->fields[0];
-    const char* password = req->fields[1];
-    const char* email = req->fields[2];
+    const char* username = fields[0];
+    const char* password = fields[1];
+    const char* email = fields[2];
     
     // Validate username for special characters
     if (!db_validate_username(username)) {
         send_response(client_sock, RESPONSE_UNPROCESSABLE, "Username contains special characters", NULL);
         printf("[REGISTER] Failed - Username '%s' contains special characters\n", username);
         return;
-    }
+    } 
     
     // Validate email format
     if (!db_validate_email(email)) {
@@ -67,15 +68,15 @@ void handle_register(ServerContext* ctx, int client_sock, Request* req) {
 }
 
 // Handle LOGIN 
-void handle_login(ServerContext* ctx, int client_sock, Request* req) {
+void handle_login(ServerContext* ctx, int client_sock, char** fields, int field_count) {
     // LOGIN|username|password
-    if (req->field_count != 2) {
+    if (field_count != 2) {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
     
-    const char* username = req->fields[0];
-    const char* password = req->fields[1];
+    const char* username = fields[0];
+    const char* password = fields[1];
     
     User* user = db_find_user_by_username(username);
     
@@ -108,14 +109,14 @@ void handle_login(ServerContext* ctx, int client_sock, Request* req) {
 }
 
 // Handle LOGOUT 
-void handle_logout(ServerContext* ctx, int client_sock, Request* req) {
+void handle_logout(ServerContext* ctx, int client_sock, char** fields, int field_count) {
     // LOGOUT|session_id
-    if (req->field_count != 1) {
+    if (field_count != 1) {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
     
-    const char* session_id = req->fields[0];
+    const char* session_id = fields[0];
     
     // Find session
     Session* session = session_find_by_token(ctx->sm, session_id);
@@ -142,19 +143,33 @@ void handle_logout(ServerContext* ctx, int client_sock, Request* req) {
 }
 
 // Handle incoming client requests
-void handle_client_request(ServerContext* ctx, int client_sock, Request* req) {
-    printf("[REQUEST] Received command: %s\n", req->command);
+void handle_client_request(ServerContext* ctx, int client_sock, const char* buffer) {
+    char command[MAX_COMMAND];
+    int field_count;
     
-    if (strcmp(req->command, CMD_REGISTER) == 0) {
-        handle_register(ctx, client_sock, req);
-    } else if (strcmp(req->command, CMD_LOGIN) == 0) {
-        handle_login(ctx, client_sock, req);
-    } else if (strcmp(req->command, CMD_LOGOUT) == 0) {
-        handle_logout(ctx, client_sock, req);
+    // Parse chuỗi request (cấp phát động)
+    char** fields = parse_request(buffer, command, &field_count);
+    
+    if (fields == NULL && field_count > 0) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+    
+    printf("[REQUEST] Received command: %s\n", command);
+    
+    if (strcmp(command, CMD_REGISTER) == 0) {
+        handle_register(ctx, client_sock, fields, field_count);
+    } else if (strcmp(command, CMD_LOGIN) == 0) {
+        handle_login(ctx, client_sock, fields, field_count);
+    } else if (strcmp(command, CMD_LOGOUT) == 0) {
+        handle_logout(ctx, client_sock, fields, field_count);
     } else {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
-        printf("[ERROR] Unknown command: %s\n", req->command);
+        printf("[ERROR] Unknown command: %s\n", command);
     }
+    
+    // Giải phóng fields
+    free_fields(fields, field_count);
 }
 
 // Thread function for handling each client
@@ -162,7 +177,7 @@ void* client_thread(void* arg) {
     int client_sock = *(int*)arg;
     free(arg);
     
-    Request req;
+    char buffer[MAX_BUFFER];
     ServerContext ctx;
     
     ctx.sm = &sm;
@@ -172,13 +187,13 @@ void* client_thread(void* arg) {
     
     // Handle client requests
     while (1) {
-        int result = receive_request(client_sock, &req);
+        int result = receive_message(client_sock, buffer, MAX_BUFFER);
         if (result <= 0) {
             printf("[CLIENT] Client disconnected (socket: %d)\n", client_sock);
             break;
         }
         
-        handle_client_request(&ctx, client_sock, &req);
+        handle_client_request(&ctx, client_sock, buffer);
     }
     
     // Cleanup session when client disconnects

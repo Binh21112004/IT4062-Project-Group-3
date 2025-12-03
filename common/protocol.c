@@ -1,25 +1,13 @@
 #include "protocol.h"
 #include <arpa/inet.h>
 
-// Send request from client to server: COMMAND|FIELD1|FIELD2|...
-int send_request(int sock, const char* command, char fields[][MAX_FIELD], int field_count) {
-    char buffer[MAX_BUFFER];
-    int pos = 0;
-    
-    pos += snprintf(buffer + pos, MAX_BUFFER - pos, "%s", command);
-    
-
-    for (int i = 0; i < field_count && pos < MAX_BUFFER - 2; i++) {
-        pos += snprintf(buffer + pos, MAX_BUFFER - pos, "|%s", fields[i]);
-    }
-    
-
-    pos += snprintf(buffer + pos, MAX_BUFFER - pos, "\r\n");
-    
-   
+// Gửi chuỗi message qua socket
+int send_message(int sock, const char* message) {
+    int len = strlen(message);
     int sent = 0;
-    while (sent < pos) {
-        int n = send(sock, buffer + sent, pos - sent, 0);
+    
+    while (sent < len) {
+        int n = send(sock, message + sent, len - sent, 0);
         if (n <= 0) {
             if (n < 0) {
                 perror("[ERROR] send failed");
@@ -32,18 +20,17 @@ int send_request(int sock, const char* command, char fields[][MAX_FIELD], int fi
     return sent;
 }
 
-
-int receive_request(int sock, Request* req) {
-    char buffer[MAX_BUFFER];
+// Nhận chuỗi message từ socket (đọc đến khi gặp \r\n)
+int receive_message(int sock, char* buffer, int buffer_size) {
     char recv_buff[256];
     int bytes;
     int total_len = 0;
     
     buffer[0] = '\0';
     
- 
+    // Đọc cho đến khi gặp \r\n
     while (strstr(buffer, "\r\n") == NULL) {
-        if (total_len >= MAX_BUFFER - 1) {
+        if (total_len >= buffer_size - 1) {
             fprintf(stderr, "[ERROR] Buffer overflow\n");
             return -1;
         }
@@ -59,129 +46,204 @@ int receive_request(int sock, Request* req) {
         
         recv_buff[bytes] = '\0';
         
-        int space_left = MAX_BUFFER - total_len - 1;
+        int space_left = buffer_size - total_len - 1;
         if (space_left > 0) {
             strncat(buffer, recv_buff, space_left);
             total_len = strlen(buffer);
         }
     }
     
-    
+    // Loại bỏ \r\n
     char* delimiter = strstr(buffer, "\r\n");
     if (delimiter != NULL) {
         *delimiter = '\0';
     }
     
-    // Parse fields separated by |
-    req->field_count = 0;
-    char* token = strtok(buffer, "|");
+    return strlen(buffer);
+}
+
+// Parse request: COMMAND|FIELD1|FIELD2|... (cấp phát động)
+char** parse_request(const char* buffer, char* command, int* field_count) {
+    char temp[MAX_BUFFER];
+    strncpy(temp, buffer, MAX_BUFFER - 1);
+    temp[MAX_BUFFER - 1] = '\0';
     
+    *field_count = 0;
+    
+    // Đếm số lượng fields trước
+    char temp2[MAX_BUFFER];
+    strcpy(temp2, temp);
+    char* token = strtok(temp2, "|");
     if (token == NULL) {
-        fprintf(stderr, "[ERROR] Invalid request format\n");
+        command[0] = '\0';
+        return NULL;
+    }
+    
+    int count = 0;
+    while (strtok(NULL, "|") != NULL) {
+        count++;
+    }
+    
+    // Cấp phát mảng con trỏ
+    char** fields = (char**)malloc(count * sizeof(char*));
+    if (fields == NULL) {
+        fprintf(stderr, "[ERROR] Memory allocation failed for fields array\n");
+        command[0] = '\0';
+        return NULL;
+    }
+    
+    // Parse lại để lấy dữ liệu
+    token = strtok(temp, "|");
+    
+    // Token đầu tiên là command
+    strncpy(command, token, MAX_COMMAND - 1);
+    command[MAX_COMMAND - 1] = '\0';
+    
+    // Các token còn lại là fields
+    int i = 0;
+    while ((token = strtok(NULL, "|")) != NULL && i < count) {
+        fields[i] = (char*)malloc(strlen(token) + 1);
+        if (fields[i] == NULL) {
+            fprintf(stderr, "[ERROR] Memory allocation failed for field %d\n", i);
+            // Free các fields đã cấp phát
+            for (int j = 0; j < i; j++) {
+                free(fields[j]);
+            }
+            free(fields);
+            return NULL;
+        }
+        strcpy(fields[i], token);
+        i++;
+    }
+    
+    *field_count = i;
+    return fields;
+}
+
+// Giải phóng mảng fields
+void free_fields(char** fields, int field_count) {
+    if (fields == NULL) return;
+    
+    for (int i = 0; i < field_count; i++) {
+        if (fields[i] != NULL) {
+            free(fields[i]);
+        }
+    }
+    free(fields);
+}
+
+// Gửi request với số lượng fields tùy ý (cấp phát động)
+int send_request(int sock, const char* command, const char** fields, int field_count) {
+    // Tính tổng kích thước cần thiết
+    int total_len = strlen(command) + 3; // command + \r\n + \0
+    for (int i = 0; i < field_count; i++) {
+        total_len += strlen(fields[i]) + 1; // field + |
+    }
+    
+    // Cấp phát buffer động
+    char* buffer = (char*)malloc(total_len);
+    if (buffer == NULL) {
+        fprintf(stderr, "[ERROR] Memory allocation failed\n");
         return -1;
     }
     
-    // First token is command
-    strncpy(req->command, token, MAX_COMMAND - 1);
-    req->command[MAX_COMMAND - 1] = '\0';
-    
-    // Remaining tokens are fields
-    while ((token = strtok(NULL, "|")) != NULL && req->field_count < MAX_FIELDS) {
-        strncpy(req->fields[req->field_count], token, MAX_FIELD - 1);
-        req->fields[req->field_count][MAX_FIELD - 1] = '\0';
-        req->field_count++;
-    }
-    
-    return total_len;
-}
-
-// Send response from server to client: CODE|MESSAGE or CODE|MESSAGE|EXTRA_DATA
-int send_response(int sock, int code, const char* message, const char* extra_data) {
-    char buffer[MAX_BUFFER];
+    // Build request: COMMAND|FIELD1|FIELD2|...\r\n
     int pos = 0;
+    pos = snprintf(buffer, total_len, "%s", command);
     
-    if (extra_data != NULL && strlen(extra_data) > 0) {
-        pos = snprintf(buffer, MAX_BUFFER, "%d|%s|%s\r\n", code, message, extra_data);
-    } else {
-        pos = snprintf(buffer, MAX_BUFFER, "%d|%s\r\n", code, message);
-    }
-    
-
-    int sent = 0;
-    while (sent < pos) {
-        int n = send(sock, buffer + sent, pos - sent, 0);
-        if (n <= 0) {
-            if (n < 0) {
-                perror("[ERROR] send failed");
-            }
+    for (int i = 0; i < field_count && pos < total_len - 2; i++) {
+        int written = snprintf(buffer + pos, total_len - pos, "|%s", fields[i]);
+        if (written < 0) {
+            free(buffer);
             return -1;
         }
-        sent += n;
+        pos += written;
     }
+    
+    // Thêm \r\n
+    if (pos + 2 < total_len) {
+        buffer[pos++] = '\r';
+        buffer[pos++] = '\n';
+        buffer[pos] = '\0';
+    }
+    
+    // Gửi
+    int sent = send_message(sock, buffer);
+    free(buffer);
     
     return sent;
 }
 
+// Gửi response (server)
+int send_response(int sock, int code, const char* message, const char* extra_data) {
+    // Tính kích thước cần thiết
+    int total_len = 50 + strlen(message); // code + | + message
+    if (extra_data != NULL) {
+        total_len += strlen(extra_data) + 1; // + | + extra_data
+    }
+    total_len += 3; // + \r\n\0
+    
+    // Cấp phát buffer
+    char* buffer = (char*)malloc(total_len);
+    if (buffer == NULL) {
+        fprintf(stderr, "[ERROR] Memory allocation failed\n");
+        return -1;
+    }
+    
+    // Build response
+    if (extra_data != NULL && strlen(extra_data) > 0) {
+        snprintf(buffer, total_len, "%d|%s|%s\r\n", code, message, extra_data);
+    } else {
+        snprintf(buffer, total_len, "%d|%s\r\n", code, message);
+    }
+    
+    // Gửi
+    int sent = send_message(sock, buffer);
+    free(buffer);
+    
+    return sent;
+}
 
-int receive_response(int sock, Response* res) {
+// Nhận response (client) - extra_data được cấp phát động
+char* receive_response(int sock, int* code, char* message, int message_size) {
     char buffer[MAX_BUFFER];
-    char recv_buff[256];
-    int bytes;
-    int total_len = 0;
     
-    buffer[0] = '\0';
-    
-    
-    while (strstr(buffer, "\r\n") == NULL) {
-        if (total_len >= MAX_BUFFER - 1) {
-            fprintf(stderr, "[ERROR] Buffer overflow\n");
-            return -1;
-        }
-        
-        bytes = recv(sock, recv_buff, sizeof(recv_buff) - 1, 0);
-        
-        if (bytes <= 0) {
-            if (bytes < 0) {
-                perror("[ERROR] recv failed");
-            }
-            return bytes;
-        }
-        
-        recv_buff[bytes] = '\0';
-        
-        int space_left = MAX_BUFFER - total_len - 1;
-        if (space_left > 0) {
-            strncat(buffer, recv_buff, space_left);
-            total_len = strlen(buffer);
-        }
+    // Nhận message
+    if (receive_message(sock, buffer, MAX_BUFFER) <= 0) {
+        *code = -1;
+        message[0] = '\0';
+        return NULL;
     }
     
+    // Parse
+    char temp[MAX_BUFFER];
+    strncpy(temp, buffer, MAX_BUFFER - 1);
+    temp[MAX_BUFFER - 1] = '\0';
     
-    char* delimiter = strstr(buffer, "\r\n");
-    if (delimiter != NULL) {
-        *delimiter = '\0';
-    }
-    
-    // Parse: CODE|MESSAGE or CODE|MESSAGE|EXTRA_DATA
-    char* code_str = strtok(buffer, "|");
+    char* code_str = strtok(temp, "|");
     char* message_str = strtok(NULL, "|");
     char* extra_str = strtok(NULL, "|");
     
     if (code_str == NULL || message_str == NULL) {
-        fprintf(stderr, "[ERROR] Invalid response format\n");
-        return -1;
+        *code = -1;
+        message[0] = '\0';
+        return NULL;
     }
     
-    res->code = atoi(code_str);
-    strncpy(res->message, message_str, MAX_BUFFER - 1);
-    res->message[MAX_BUFFER - 1] = '\0';
+    *code = atoi(code_str);
+    strncpy(message, message_str, message_size - 1);
+    message[message_size - 1] = '\0';
     
-    if (extra_str != NULL) {
-        strncpy(res->extra_data, extra_str, MAX_BUFFER - 1);
-        res->extra_data[MAX_BUFFER - 1] = '\0';
-    } else {
-        res->extra_data[0] = '\0';
+    // Cấp phát động cho extra_data nếu có
+    if (extra_str != NULL && strlen(extra_str) > 0) {
+        char* extra_data = (char*)malloc(strlen(extra_str) + 1);
+        if (extra_data == NULL) {
+            fprintf(stderr, "[ERROR] Memory allocation failed for extra_data\n");
+            return NULL;
+        }
+        strcpy(extra_data, extra_str);
+        return extra_data;
     }
     
-    return total_len;
+    return NULL; // Không có extra_data
 }

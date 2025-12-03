@@ -31,8 +31,6 @@ void do_register() {
     char username[MAX_USERNAME];
     char password[MAX_PASSWORD];
     char email[MAX_EMAIL];
-    char fields[3][MAX_FIELD];
-    Response res;
     
     printf("Username: ");
     fflush(stdout);
@@ -49,29 +47,29 @@ void do_register() {
     if (fgets(email, sizeof(email), stdin) == NULL) return;
     email[strcspn(email, "\n")] = 0;
     
-    // Prepare fields: REGISTER|username|password|email
-    strncpy(fields[0], username, MAX_FIELD - 1);
-    strncpy(fields[1], password, MAX_FIELD - 1);
-    strncpy(fields[2], email, MAX_FIELD - 1);
-    
-  
+    // Gửi request
+    const char* fields[] = {username, password, email};
     send_request(client_sock, CMD_REGISTER, fields, 3);
     
+    // Nhận response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
     
-    if (receive_response(client_sock, &res) > 0) {
-        if (res.code == RESPONSE_OK) {
-            printf("\n[SUCCESS] %s\n", res.message);
-        } else {
-            printf("\n[ERROR] %s (Code: %d)\n", res.message, res.code);
-        }
+    if (code == RESPONSE_OK) {
+        printf("\n[SUCCESS] %s\n", message);
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
     }
 }
 
 void do_login() {
     char username[MAX_USERNAME];
     char password[MAX_PASSWORD];
-    char fields[2][MAX_FIELD];
-    Response res;
     
     printf("Username: ");
     fflush(stdout);
@@ -83,26 +81,29 @@ void do_login() {
     if (fgets(password, sizeof(password), stdin) == NULL) return;
     password[strcspn(password, "\n")] = 0;
     
-    // Prepare fields: LOGIN|username|password
-    strncpy(fields[0], username, MAX_FIELD - 1);
-    strncpy(fields[1], password, MAX_FIELD - 1);
-    
-
+    // Gửi request
+    const char* fields[] = {username, password};
     send_request(client_sock, CMD_LOGIN, fields, 2);
     
-
-    if (receive_response(client_sock, &res) > 0) {
-        if (res.code == RESPONSE_OK) {
-            // Save session_id from extra_data
-            if (strlen(res.extra_data) > 0) {
-                strncpy(session_id, res.extra_data, MAX_SESSION_ID - 1);
-                session_id[MAX_SESSION_ID - 1] = '\0';
-                printf("\n[SUCCESS] %s\n", res.message);
-                printf("Session ID: %s\n", session_id);
-            }
-        } else {
-            printf("\n[ERROR] %s (Code: %d)\n", res.message, res.code);
+    // Nhận response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    if (code == RESPONSE_OK) {
+        // Lưu session_id từ extra_data
+        if (extra_data != NULL) {
+            strncpy(session_id, extra_data, MAX_SESSION_ID - 1);
+            session_id[MAX_SESSION_ID - 1] = '\0';
+            printf("\n[SUCCESS] %s\n", message);
+            printf("Session ID: %s\n", session_id);
         }
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
     }
 }
 
@@ -112,24 +113,25 @@ void do_logout() {
         return;
     }
     
-    char fields[1][MAX_FIELD];
-    Response res;
-    
-    // Prepare fields: LOGOUT|session_id
-    strncpy(fields[0], session_id, MAX_FIELD - 1);
-    
-
+    // Gửi request
+    const char* fields[] = {session_id};
     send_request(client_sock, CMD_LOGOUT, fields, 1);
     
-  
-    if (receive_response(client_sock, &res) > 0) {
-        if (res.code == RESPONSE_OK) {
-            // Clear session_id
-            memset(session_id, 0, sizeof(session_id));
-            printf("\n[SUCCESS] %s\n", res.message);
-        } else {
-            printf("\n[ERROR] %s (Code: %d)\n", res.message, res.code);
-        }
+    // Nhận response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    if (code == RESPONSE_OK) {
+        // Xóa session_id
+        memset(session_id, 0, sizeof(session_id));
+        printf("\n[SUCCESS] %s\n", message);
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
     }
 }
 

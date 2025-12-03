@@ -17,9 +17,9 @@ typedef struct {
 } ServerContext;
 
 // Handler functions
-void handle_register(ServerContext* ctx, int client_sock, Request* req);
-void handle_login(ServerContext* ctx, int client_sock, Request* req);
-void handle_logout(ServerContext* ctx, int client_sock, Request* req);
-void handle_client_request(ServerContext* ctx, int client_sock, Request* req);
+void handle_register(ServerContext* ctx, int client_sock, char** fields, int field_count);
+void handle_login(ServerContext* ctx, int client_sock, char** fields, int field_count);
+void handle_logout(ServerContext* ctx, int client_sock, char** fields, int field_count);
+void handle_client_request(ServerContext* ctx, int client_sock, const char* buffer);
 
 #endif 
