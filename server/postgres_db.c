@@ -136,7 +136,7 @@ int db_find_user_by_username(const char* username, int* user_id, char* email, in
     const char* paramValues[1] = {username};
     
     PGresult* res = PQexecParams(conn,
-        "SELECT user_id, email, is_active FROM users WHERE username = $1",
+        "SELECT user_id, email, status FROM users WHERE username = $1",
         1, NULL, paramValues, NULL, NULL, 0);
     
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -152,7 +152,7 @@ int db_find_user_by_username(const char* username, int* user_id, char* email, in
     *user_id = atoi(PQgetvalue(res, 0, 0));
     strncpy(email, PQgetvalue(res, 0, 1), email_size - 1);
     email[email_size - 1] = '\0';
-    *is_active = strcmp(PQgetvalue(res, 0, 2), "t") == 0 ? 1 : 0;
+    *is_active = strcmp(PQgetvalue(res, 0, 2), "active") == 0 ? 1 : 0;
     
     PQclear(res);
     return 1; // User found
@@ -167,7 +167,7 @@ int db_find_user_by_id(int user_id, char* username, int username_size, char* ema
     const char* paramValues[1] = {user_id_str};
     
     PGresult* res = PQexecParams(conn,
-        "SELECT username, email, is_active FROM users WHERE user_id = $1",
+        "SELECT username, email, status FROM users WHERE user_id = $1",
         1, NULL, paramValues, NULL, NULL, 0);
     
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -184,7 +184,7 @@ int db_find_user_by_id(int user_id, char* username, int username_size, char* ema
     username[username_size - 1] = '\0';
     strncpy(email, PQgetvalue(res, 0, 1), email_size - 1);
     email[email_size - 1] = '\0';
-    *is_active = strcmp(PQgetvalue(res, 0, 2), "t") == 0 ? 1 : 0;
+    *is_active = strcmp(PQgetvalue(res, 0, 2), "active") == 0 ? 1 : 0;
     
     PQclear(res);
     return 1; // User found
@@ -216,14 +216,14 @@ int db_update_user_status(int user_id, int is_active) {
     if (!conn) return -1;
     
     char user_id_str[20];
-    char is_active_str[10];
+    const char* status_str;
     snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    snprintf(is_active_str, sizeof(is_active_str), "%s", is_active ? "true" : "false");
+    status_str = is_active ? "active" : "inactive";
     
-    const char* paramValues[2] = {user_id_str, is_active_str};
+    const char* paramValues[2] = {user_id_str, status_str};
     
     PGresult* res = PQexecParams(conn,
-        "UPDATE users SET is_active = $2 WHERE user_id = $1",
+        "UPDATE users SET status = $2 WHERE user_id = $1",
         2, NULL, paramValues, NULL, NULL, 0);
     
     int success = PQresultStatus(res) == PGRES_COMMAND_OK;
