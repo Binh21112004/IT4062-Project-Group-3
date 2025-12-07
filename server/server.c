@@ -17,7 +17,14 @@ SessionManager sm;
 
 // Handle REGISTER 
 void handle_register(ServerContext* ctx, int client_sock, char** fields, int field_count) {
-    (void)ctx;  // Tránh warning unused parameter
+    // Check if already logged in
+    Session* existing_session = session_find_by_socket(ctx->sm, client_sock);
+    if (existing_session != NULL && existing_session->is_active) {
+        send_response(client_sock, RESPONSE_BAD_REQUEST, "Already logged in. Please logout first", NULL);
+        printf("[REGISTER] Failed - Client socket %d is already logged in\n", client_sock);
+        return;
+    }
+    
     // REGISTER|username|password|email
     if (field_count != 3) {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
@@ -70,6 +77,14 @@ void handle_register(ServerContext* ctx, int client_sock, char** fields, int fie
 
 // Handle LOGIN 
 void handle_login(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    // Check if already logged in
+    Session* existing_session = session_find_by_socket(ctx->sm, client_sock);
+    if (existing_session != NULL && existing_session->is_active) {
+        send_response(client_sock, RESPONSE_BAD_REQUEST, "Already logged in. Please logout first", NULL);
+        printf("[LOGIN] Failed - Client socket %d is already logged in\n", client_sock);
+        return;
+    }
+    
     // LOGIN|username|password
     if (field_count != 2) {
         send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
