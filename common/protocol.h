@@ -21,6 +21,12 @@
 #define CMD_REGISTER "REGISTER"
 #define CMD_LOGIN "LOGIN"
 #define CMD_LOGOUT "LOGOUT"
+#define CMD_CREATE_EVENT "CREATE_EVENT"
+#define CMD_GET_EVENTS   "GET_EVENTS"
+#define CMD_GET_EVENT_DETAIL "GET_EVENT_DETAIL"
+#define CMD_UPDATE_EVENT     "UPDATE_EVENT"
+#define CMD_DELETE_EVENT "DELETE_EVENT"
+
 
 // Response codes
 #define RESPONSE_OK 200
@@ -29,6 +35,7 @@
 #define RESPONSE_CONFLICT 409
 #define RESPONSE_UNPROCESSABLE 422 // sai về định dạng mail, tên chứa kí tự đặc biệt
 #define RESPONSE_SERVER_ERROR 500
+#define RESPONSE_NOT_FOUND 404
 
 // Protocol functions - Xử lý protocol bằng chuỗi với cấp phát động
 

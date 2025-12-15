@@ -68,8 +68,8 @@ int db_check_friendship(int user_id1, int user_id2);
  * @param max_participants - Số lượng người tham gia tối đa
  * @return event_id nếu thành công, -1 nếu lỗi
  */
-int db_create_event(int creator_id, const char* event_name, const char* description, 
-                    const char* location, const char* start_time, const char* end_time, int max_participants);
+int db_create_event(int creator_id,const char* event_name,const char* description,const char* location,
+                    const char* event_time,const char* event_type);
 
 /**
  * Chức năng: Sửa thông tin sự kiện
@@ -82,15 +82,16 @@ int db_create_event(int creator_id, const char* event_name, const char* descript
  * @param max_participants - Số lượng người tham gia tối đa mới
  * @return 0 nếu thành công, -1 nếu lỗi
  */
-int db_update_event(int event_id, const char* event_name, const char* description,
-                    const char* location, const char* start_time, const char* end_time, int max_participants);
+// return: 1 = updated, 0 = not found, -1 = db error
+int db_update_event(int creator_id, int event_id,const char* title,const char* description,
+                    const char* location,const char* event_time,const char* event_type);
 
 /**
  * Chức năng: Xóa sự kiện
  * @param event_id - ID của sự kiện cần xóa
  * @return 0 nếu thành công, -1 nếu lỗi
  */
-int db_delete_event(int event_id);
+int db_delete_event(int user_id,int event_id);
 
 int db_get_event_details(int event_id, char*** results);
 int db_get_user_events(int user_id, char*** results, int* count);
@@ -102,6 +103,10 @@ int db_get_user_events(int user_id, char*** results, int* count);
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 int db_get_all_events(char*** results, int* count);
+
+// Lấy chi tiết sự kiện theo người tạo và event_id
+int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra);
+
 
 int db_search_events(const char* keyword, char*** results, int* count);
 

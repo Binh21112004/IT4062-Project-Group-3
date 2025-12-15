@@ -205,45 +205,62 @@ int send_response(int sock, int code, const char* message, const char* extra_dat
 }
 
 // Nhận response (client) - extra_data được cấp phát động
+// Format: CODE|MESSAGE|EXTRA|...\r\n
 char* receive_response(int sock, int* code, char* message, int message_size) {
     char buffer[MAX_BUFFER];
-    
-    // Nhận message
-    if (receive_message(sock, buffer, MAX_BUFFER) <= 0) {
-        *code = -1;
-        message[0] = '\0';
+
+    // 1) Nhận message từ socket
+    int n = receive_message(sock, buffer, MAX_BUFFER);
+    if (n <= 0) {
+        if (code) *code = -1;
+        if (message && message_size > 0) message[0] = '\0';
         return NULL;
     }
-    
-    // Parse
-    char temp[MAX_BUFFER];
-    strncpy(temp, buffer, MAX_BUFFER - 1);
-    temp[MAX_BUFFER - 1] = '\0';
-    
-    char* code_str = strtok(temp, "|");
-    char* message_str = strtok(NULL, "|");
-    char* extra_str = strtok(NULL, "|");
-    
-    if (code_str == NULL || message_str == NULL) {
-        *code = -1;
-        message[0] = '\0';
+    buffer[MAX_BUFFER - 1] = '\0';
+    // 2) Tìm dấu '|' thứ 1 và thứ 2
+    char* p1 = strchr(buffer, '|');
+    if (!p1) {
+        if (code) *code = -1;
+        if (message && message_size > 0) message[0] = '\0';
         return NULL;
     }
-    
-    *code = atoi(code_str);
-    strncpy(message, message_str, message_size - 1);
-    message[message_size - 1] = '\0';
-    
-    // Cấp phát động cho extra_data nếu có
-    if (extra_str != NULL && strlen(extra_str) > 0) {
-        char* extra_data = (char*)malloc(strlen(extra_str) + 1);
-        if (extra_data == NULL) {
-            fprintf(stderr, "[ERROR] Memory allocation failed for extra_data\n");
-            return NULL;
+
+    char* p2 = strchr(p1 + 1, '|');  // có thể NULL nếu không có extra
+    *p1 = '\0';
+    if (code) *code = atoi(buffer);
+
+    //Copy message (p1+1 .. p2-1) hoặc (p1+1 .. end) nếu không có p2
+    if (!p2) {
+        // không có extra
+        if (message && message_size > 0) {
+            strncpy(message, p1 + 1, message_size - 1);
+            message[message_size - 1] = '\0';
         }
-        strcpy(extra_data, extra_str);
-        return extra_data;
+        return NULL;
     }
-    
-    return NULL; // Không có extra_data
+
+    *p2 = '\0';
+    if (message && message_size > 0) {
+        strncpy(message, p1 + 1, message_size - 1);
+        message[message_size - 1] = '\0';
+    }
+
+    // EXTRA là toàn bộ phần còn lại sau p2
+    const char* extra_str = p2 + 1;
+
+    // có thể server gửi extra rỗng
+    if (!extra_str || extra_str[0] == '\0') {
+        return NULL;
+    }
+
+    //Cấp phát động extra_data
+    char* extra_data = (char*)malloc(strlen(extra_str) + 1);
+    if (!extra_data) {
+        fprintf(stderr, "[ERROR] Memory allocation failed for extra_data\n");
+        return NULL;
+    }
+
+    strcpy(extra_data, extra_str);
+    return extra_data; 
 }
+

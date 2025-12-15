@@ -613,78 +613,97 @@ int db_check_friendship(int user_id1, int user_id2) {
 }
 
 /**
- * Chức năng : Tạo mới sự kiện
- * - Insert sự kiện mới vào database
- * - Tự động thêm creator làm participant
- * - Ghi log hoạt động
- * @return event_id nếu thành công, -1 nếu lỗi
+ * Tạo mới sự kiện
+ * @param creator_id   ID user tạo sự kiện
+ * @param event_name   Tên sự kiện  (map vào events.title)
+ * @param description  Mô tả        (events.description)
+ * @param location     Địa điểm     (events.location)
+ * @param event_time   Thời gian    (events.event_time, format: YYYY-MM-DD HH:MM:SS)
+ * @param event_type   'public' / 'private' (events.event_type)
+ * @return event_id nếu OK, -1 nếu lỗi
  */
-int db_create_event(int creator_id, const char* event_name, const char* description,
-                    const char* location, const char* start_time, const char* end_time, int max_participants) {
+int db_create_event(int creator_id,const char* event_name,const char* description,
+                    const char* location,const char* event_time,const char* event_type)
+{
     if (!conn) return -1;
-    
-    // Chuyển đổi int sang string để dùng với PQexecParams
-    char creator_id_str[20], max_participants_str[20];
+
+    // ép kiểu creator_id sang string
+    char creator_id_str[20];
     snprintf(creator_id_str, sizeof(creator_id_str), "%d", creator_id);
-    snprintf(max_participants_str, sizeof(max_participants_str), "%d", max_participants);
-    
-    // Mảng các parameters cho query (theo thứ tự $1, $2, $3...)
-    const char* paramValues[7] = {creator_id_str, event_name, description, location, start_time, end_time, max_participants_str};
-    
-    // Thực hiện INSERT và trả về event_id vừa tạo
+
+    const char* params[6] = {
+        creator_id_str,   // $1
+        event_name,       // $2
+        description,      // $3
+        location,         // $4
+        event_time,       // $5
+        event_type        // $6
+    };
+
     PGresult* res = PQexecParams(conn,
-        "INSERT INTO events (creator_id, event_name, description, location, start_time, end_time, max_participants) "
-        "VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING event_id",
-        7, NULL, paramValues, NULL, NULL, 0);
-    
-    // Kiểm tra kết quả query
+        "INSERT INTO events (creator_id, title, description, location, event_time, event_type) "
+        "VALUES ($1, $2, $3, $4, $5, $6) "
+        "RETURNING event_id",
+        6, NULL, params, NULL, NULL, 0
+    );
+
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_create_event error: %s\n", PQerrorMessage(conn));
         PQclear(res);
         return -1;
     }
-    
-    // Lấy event_id vừa được tạo
+
     int event_id = atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
-    
-    // Tự động thêm người tạo vào danh sách tham gia
-    db_join_event(creator_id, event_id);
-    
-    // Ghi log hoạt động (Chức năng 9)
+
+    // Trigger SQL đã tự thêm creator vào event_participants rồi
+    //  không cần gọi db_join_event nữa
+
+    // Ghi log 
     char details[256];
     snprintf(details, sizeof(details), "Created event: %s", event_name);
     db_log_activity(creator_id, "EVENT_CREATED", details);
-    
+
     return event_id;
 }
+
 
 /**
  * Chức năng : Sửa thông tin sự kiện
  * - Update thông tin sự kiện trong database
  * @return 0 nếu thành công, -1 nếu lỗi
  */
-int db_update_event(int event_id, const char* event_name, const char* description,
-                    const char* location, const char* start_time, const char* end_time, int max_participants) {
+// return: 1 = updated, 0 = not found, -1 = db error
+int db_update_event(int creator_id, int event_id,const char* title,const char* description,
+                    const char* location,const char* event_time,const char* event_type){
     if (!conn) return -1;
-    
-    char event_id_str[20], max_participants_str[20];
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    snprintf(max_participants_str, sizeof(max_participants_str), "%d", max_participants);
-    
-    const char* paramValues[7] = {event_id_str, event_name, description, location, start_time, end_time, max_participants_str};
-    
-    // Thực hiện UPDATE
-    PGresult* res = PQexecParams(conn,
-        "UPDATE events SET event_name = $2, description = $3, location = $4, "
-        "start_time = $5, end_time = $6, max_participants = $7 "
-        "WHERE event_id = $1",
-        7, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
+
+    char uid[20], eid[20];
+    snprintf(uid, sizeof(uid), "%d", creator_id);
+    snprintf(eid, sizeof(eid), "%d", event_id);
+
+    const char* params[7] = {title,description,location,event_time,event_type,uid,eid};
+    PGresult* res = PQexecParams(
+        conn,
+        "UPDATE events "
+        "SET title=$1, description=$2, location=$3, event_time=$4, event_type=$5 "
+        "WHERE creator_id=$6 AND event_id=$7",
+        7, NULL, params, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "db_update_event error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
+    // số dòng update
+    int affected = atoi(PQcmdTuples(res));
     PQclear(res);
-    
-    return success ? 0 : -1;
+
+    return (affected > 0) ? 1 : 0;
 }
+
 
 /**
  * Chức năng : Xóa sự kiện
@@ -692,24 +711,34 @@ int db_update_event(int event_id, const char* event_name, const char* descriptio
  * - Cascade delete sẽ tự động xóa các bản ghi liên quan (participants, invitations, requests)
  * @return 0 nếu thành công, -1 nếu lỗi
  */
-int db_delete_event(int event_id) {
+// return: 1 = deleted, 0 = not found, -1 = db error
+int db_delete_event(int user_id, int event_id) {
     if (!conn) return -1;
-    
-    char event_id_str[20];
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[1] = {event_id_str};
-    
-    // DELETE sẽ tự động xóa các bản ghi liên quan nhờ ON DELETE CASCADE trong schema
-    PGresult* res = PQexecParams(conn,
-        "DELETE FROM events WHERE event_id = $1",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
+
+    char uid[20], eid[20];
+    snprintf(uid, sizeof(uid), "%d", user_id);
+    snprintf(eid, sizeof(eid), "%d", event_id);
+
+    const char* params[2] = { uid, eid };
+
+    PGresult* res = PQexecParams(
+        conn,
+        "DELETE FROM events WHERE creator_id = $1 AND event_id = $2",
+        2, NULL, params, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "db_delete_event error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
+    int affected = atoi(PQcmdTuples(res)); // số dòng bị xóa
     PQclear(res);
-    
-    return success ? 0 : -1;
+
+    return (affected > 0) ? 1 : 0;
 }
+
 
 // Get event details
 int db_get_event_details(int event_id, char*** results) {
@@ -743,46 +772,70 @@ int db_get_event_details(int event_id, char*** results) {
 }
 
 // Get user's events
+/**
+ * Lấy danh sách sự kiện mà user sở hữu hoặc tham gia
+ * @param user_id  ID người dùng
+ * @param results  Mảng string kết quả (mỗi phần tử là 1 event, cần free bằng db_free_results)
+ * @param count    Số event
+ */
 int db_get_user_events(int user_id, char*** results, int* count) {
     if (!conn) return -1;
-    
+
     char user_id_str[20];
     snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    
-    const char* paramValues[1] = {user_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT e.event_id, e.event_name, e.location, e.start_time, e.current_participants, e.max_participants "
+
+    const char* params[1] = { user_id_str };
+
+    PGresult* res = PQexecParams(
+        conn,
+        "SELECT DISTINCT e.event_id, e.title, e.location, e.event_time, e.event_type, e.status "
         "FROM events e "
-        "JOIN event_participants ep ON e.event_id = ep.event_id "
-        "WHERE ep.user_id = $1 AND ep.status = 'joined' "
-        "ORDER BY e.start_time",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
+        "LEFT JOIN event_participants ep ON e.event_id = ep.event_id "
+        "WHERE e.creator_id = $1 OR ep.user_id = $1 "
+        "ORDER BY e.event_time",
+        1, NULL, params, NULL, NULL, 0
+    );
+
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_get_user_events error: %s\n", PQerrorMessage(conn));
         PQclear(res);
         return -1;
     }
-    
+
     *count = PQntuples(res);
-    *results = malloc(*count * sizeof(char*));
-    
+    *results = NULL;
+
+    if (*count == 0) {
+        PQclear(res);
+        return 0;
+    }
+
+    *results = (char**)malloc(*count * sizeof(char*));
+    if (!*results) {
+        PQclear(res);
+        return -1;
+    }
+
     for (int i = 0; i < *count; i++) {
         char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s|%s|%s/%s",
+
+        // format 1 dòng: event_id;title;location;time;type;status
+        snprintf(buffer, sizeof(buffer), "%s;%s;%s;%s;%s;%s",
                  PQgetvalue(res, i, 0), // event_id
-                 PQgetvalue(res, i, 1), // event_name
+                 PQgetvalue(res, i, 1), // title
                  PQgetvalue(res, i, 2), // location
-                 PQgetvalue(res, i, 3), // start_time
-                 PQgetvalue(res, i, 4), // current_participants
-                 PQgetvalue(res, i, 5)); // max_participants
-        
+                 PQgetvalue(res, i, 3), // event_time
+                 PQgetvalue(res, i, 4), // event_type
+                 PQgetvalue(res, i, 5)  // status
+        );
+
         (*results)[i] = strdup(buffer);
     }
-    
+
     PQclear(res);
     return 0;
 }
+
 
 /**
  * Chức năng : Lấy danh sách tất cả sự kiện
@@ -796,42 +849,104 @@ int db_get_user_events(int user_id, char*** results, int* count) {
 int db_get_all_events(char*** results, int* count) {
     if (!conn) return -1;
     
-    // Query tất cả events và JOIN với users để lấy username của creator
     PGresult* res = PQexec(conn,
-        "SELECT e.event_id, e.event_name, e.location, e.start_time, e.current_participants, e.max_participants, u.username "
+        "SELECT e.event_id, e.title, e.location, e.event_time, "
+        "       e.event_type, e.status, u.username "
         "FROM events e "
         "JOIN users u ON e.creator_id = u.user_id "
-        "ORDER BY e.start_time");
+        "ORDER BY e.event_time"
+    );
     
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "[DB] Get all events failed: %s\n", PQerrorMessage(conn));
         PQclear(res);
         return -1;
     }
     
-    // Lấy số lượng rows trả về
     *count = PQntuples(res);
+    if (*count == 0) {
+        *results = NULL;
+        PQclear(res);
+        return 0;
+    }
     
-    // Cấp phát bộ nhớ cho mảng kết quả
     *results = malloc(*count * sizeof(char*));
+    if (!*results) {
+        PQclear(res);
+        return -1;
+    }
     
-    // Duyệt qua từng row và format thành string
     for (int i = 0; i < *count; i++) {
         char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s|%s|%s/%s|%s",
+        snprintf(buffer, sizeof(buffer), "%s|%s|%s|%s|%s|%s|%s",
                  PQgetvalue(res, i, 0), // event_id
-                 PQgetvalue(res, i, 1), // event_name
+                 PQgetvalue(res, i, 1), // title
                  PQgetvalue(res, i, 2), // location
-                 PQgetvalue(res, i, 3), // start_time
-                 PQgetvalue(res, i, 4), // current_participants
-                 PQgetvalue(res, i, 5), // max_participants
-                 PQgetvalue(res, i, 6)); // creator username
-        
-        // Copy string vào results
+                 PQgetvalue(res, i, 3), // event_time
+                 PQgetvalue(res, i, 4), // event_type
+                 PQgetvalue(res, i, 5), // status
+                 PQgetvalue(res, i, 6)  // creator username
+        );
         (*results)[i] = strdup(buffer);
     }
     
     PQclear(res);
     return 0;
+}
+// return: 1 = found, 0 = not found, -1 = db error
+int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra) {
+    if (!conn || !out_extra) return -1;
+    *out_extra = NULL;
+
+    char uid[20], eid[20];
+    snprintf(uid, sizeof(uid), "%d", user_id);
+    snprintf(eid, sizeof(eid), "%d", event_id);
+
+    //tham số truyền cho PQexecParams:$1 = uid, $2 = eid
+    const char* params[2] = { uid, eid };
+
+    PGresult* res = PQexecParams(conn,
+        "SELECT event_id, title, COALESCE(description,''), COALESCE(location,''), "
+        "       event_time::text, event_type, status "
+        "FROM events "
+        "WHERE creator_id = $1 AND event_id = $2",
+        2,NULL,params,NULL, NULL,0);
+
+    //  PGRES_TUPLES_OK : thành công và trả về rows
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_get_event_detail_by_creator error: %s\n", PQerrorMessage(conn));
+        PQclear(res); // giải phóng PGresult để tránh memory leak
+        return -1;
+    }
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        return 0;
+    }
+
+    //Lấy giá trị từng cột ở row 0
+    const char* c0 = PQgetvalue(res, 0, 0); //event_id
+    const char* c1 = PQgetvalue(res, 0, 1); //title
+    const char* c2 = PQgetvalue(res, 0, 2); //description
+    const char* c3 = PQgetvalue(res, 0, 3); //location
+    const char* c4 = PQgetvalue(res, 0, 4); //event_time:text
+    const char* c5 = PQgetvalue(res, 0, 5); //event_type
+    const char* c6 = PQgetvalue(res, 0, 6); //status
+
+    int n = snprintf(NULL, 0, "%s|%s|%s|%s|%s|%s|%s", c0,c1,c2,c3,c4,c5,c6);
+
+    char* extra = (char*)malloc((size_t)n + 1);
+    if (!extra) {
+        PQclear(res);
+        return -1;
+    }
+
+    //ghi dữ liệu vào extra theo format event_id|title|description|location|event_time|event_type|status
+    snprintf(extra, (size_t)n + 1, "%s|%s|%s|%s|%s|%s|%s", c0,c1,c2,c3,c4,c5,c6);
+
+    PQclear(res);
+    *out_extra = extra;
+    return 1;
 }
 
 // Search events

@@ -81,21 +81,17 @@ CREATE INDEX idx_friendships_user2 ON friendships(user2_id);
 -- 5. EVENTS TABLE - Quản lý sự kiện
 -- =========================================
 CREATE TABLE events (
-    event_id SERIAL PRIMARY KEY,
-    creator_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    location VARCHAR(255),
-    event_time TIMESTAMP NOT NULL,
-    event_type VARCHAR(20) NOT NULL CHECK (event_type IN ('private', 'public')),
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'completed')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    event_id SERIAL PRIMARY KEY, -- Mã sự kiện
+    creator_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE, -- Người tạo sự kiện
+    title VARCHAR(200) NOT NULL, -- Tiêu đề sự kiện
+    description TEXT, --Mô tả sự kiện
+    location VARCHAR(255), -- Địa điểm tổ chức
+    event_time TIMESTAMP NOT NULL,-- Thời gian diễn ra sự kiện
+    event_type VARCHAR(20) NOT NULL CHECK (event_type IN ('private', 'public')), -- Loại sự kiện
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'cancelled', 'completed')), -- Trạng thái sự kiện
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Thời gian tạo sự kiện
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- Thời gian cập nhật sự kiện
 );
-
-CREATE INDEX idx_events_creator ON events(creator_id);
-CREATE INDEX idx_events_type ON events(event_type);
-CREATE INDEX idx_events_time ON events(event_time);
 
 -- =========================================
 -- 6. EVENT_PARTICIPANTS TABLE - Người tham gia sự kiện
@@ -282,4 +278,4 @@ INSERT INTO friendships (user1_id, user2_id) VALUES (1, 2), (1, 3);
 INSERT INTO events (creator_id, title, description, location, event_time, event_type) VALUES
 (1, 'Birthday Party', 'Join my birthday celebration!', 'Hanoi', '2025-12-25 18:00:00', 'private');
 
-COMMIT;
+

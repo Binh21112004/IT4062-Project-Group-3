@@ -1,90 +1,47 @@
-# Makefile for TCP Socket Project (Linux/Ubuntu)
-
 CC = gcc
-CFLAGS = -Wall -Wextra -I. -I/usr/include/postgresql -pthread
-LDFLAGS = -pthread -lpq
 
-# Directories
-SERVER_DIR = server
-CLIENT_DIR = client
-COMMON_DIR = common
-BUILD_DIR = build
-DATA_DIR = data
+# Base flags
+CFLAGS = -Wall -g
 
-# Source files
-COMMON_SRC = $(COMMON_DIR)/protocol.c
-SERVER_SRC = $(SERVER_DIR)/server.c $(SERVER_DIR)/postgres_db.c $(SERVER_DIR)/session.c $(SERVER_DIR)/config.c
-CLIENT_SRC = $(CLIENT_DIR)/client.c
+# libpq flags (Homebrew / pkg-config)
+# Nếu pkg-config chưa có: brew install pkgconf
+LIBPQ_CFLAGS = $(shell pkg-config --cflags libpq 2>/dev/null)
+LIBPQ_LDFLAGS = $(shell pkg-config --libs libpq 2>/dev/null)
 
-# Object files
-COMMON_OBJ = $(BUILD_DIR)/protocol.o
-SERVER_OBJ = $(BUILD_DIR)/server_main.o $(BUILD_DIR)/postgres_db.o $(BUILD_DIR)/session.o $(BUILD_DIR)/config.o
-CLIENT_OBJ = $(BUILD_DIR)/client_main.o
+# Fallback nếu máy bạn chưa cài pkg-config hoặc libpq formula
+# (Apple Silicon Homebrew path)
+ifeq ($(strip $(LIBPQ_CFLAGS)),)
+LIBPQ_CFLAGS = -I/opt/homebrew/opt/libpq/include
+LIBPQ_LDFLAGS = -L/opt/homebrew/opt/libpq/lib -lpq
+endif
 
-# Executables
-SERVER_EXE = $(BUILD_DIR)/server
-CLIENT_EXE = $(BUILD_DIR)/client
+CFLAGS  += $(LIBPQ_CFLAGS)
 
-# Default target
-all: $(BUILD_DIR) $(DATA_DIR) $(SERVER_EXE) $(CLIENT_EXE)
+# pthread trên macOS thường không cần -lpthread, nhưng để an toàn ta dùng -pthread
+LDFLAGS = $(LIBPQ_LDFLAGS) -pthread
 
-# Create build directory
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
+# Tên file thực thi
+SERVER_BIN = server_app
+CLIENT_BIN = client_app
 
-# Create data directory
-$(DATA_DIR):
-	mkdir -p $(DATA_DIR)
+# Source
+SERVER_SRC = server/server.c server/config.c server/postgres_db.c server/session.c common/protocol.c
+CLIENT_SRC = client/client.c common/protocol.c server/config.c
 
-# Build server
-$(SERVER_EXE): $(COMMON_OBJ) $(SERVER_OBJ)
-	$(CC) -o $@ $^ $(LDFLAGS)
-	@echo Server built successfully!
+# Object
+SERVER_OBJ = $(SERVER_SRC:.c=.o)
+CLIENT_OBJ = $(CLIENT_SRC:.c=.o)
 
-# Build client
-$(CLIENT_EXE): $(COMMON_OBJ) $(CLIENT_OBJ)
-	$(CC) -o $@ $^ $(LDFLAGS)
-	@echo Client built successfully!
+all: $(SERVER_BIN) $(CLIENT_BIN)
 
-# Compile common sources
-$(BUILD_DIR)/protocol.o: $(COMMON_DIR)/protocol.c $(COMMON_DIR)/protocol.h
+$(SERVER_BIN): $(SERVER_OBJ)
+	$(CC) $(SERVER_OBJ) -o $(SERVER_BIN) $(LDFLAGS)
+
+$(CLIENT_BIN): $(CLIENT_OBJ)
+	$(CC) $(CLIENT_OBJ) -o $(CLIENT_BIN) $(LDFLAGS)
+
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Compile server sources
-$(BUILD_DIR)/server_main.o: $(SERVER_DIR)/server.c $(SERVER_DIR)/server.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/postgres_db.o: $(SERVER_DIR)/postgres_db.c $(SERVER_DIR)/postgres_db.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/session.o: $(SERVER_DIR)/session.c $(SERVER_DIR)/session.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/config.o: $(SERVER_DIR)/config.c $(SERVER_DIR)/config.h
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Compile client sources
-$(BUILD_DIR)/client_main.o: $(CLIENT_DIR)/client.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Clean build files
 clean:
-	rm -rf $(BUILD_DIR)
-	@echo "Cleaned build files!"
-
-# Clean all (including data)
-clean-all: clean
-	rm -rf $(DATA_DIR)
-	@echo "Cleaned all files including data!"
-
-# Run server
-run-server: $(SERVER_EXE)
-	@echo "Starting server..."
-	@./$(SERVER_EXE)
-
-# Run client
-run-client: $(CLIENT_EXE)
-	@echo "Starting client..."
-	@./$(CLIENT_EXE)
-
-.PHONY: all clean clean-all run-server run-client
+	rm -f $(SERVER_BIN) $(CLIENT_BIN) $(SERVER_OBJ) $(CLIENT_OBJ)
