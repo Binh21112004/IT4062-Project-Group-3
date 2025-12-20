@@ -263,4 +263,85 @@ char* receive_response(int sock, int* code, char* message, int message_size) {
     strcpy(extra_data, extra_str);
     return extra_data; 
 }
+static pthread_mutex_t g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// thread-local request: mỗi thread client giữ request riêng
+static __thread const char* tls_current_request = NULL;
+
+void protocol_set_current_request_for_log(const char* request_line) {
+    tls_current_request = request_line;
+}
+
+static void sanitize_for_log(char* s) {
+    if (!s) return;
+    for (char* p = s; *p; p++) {
+        if (*p == '\n' || *p == '\r') *p = ' ';
+        if (*p == '$') *p = '_';
+    }
+}
+
+static void get_client_ip_str(int sock, char* out, size_t out_sz) {
+    if (!out || out_sz == 0) return;
+
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof(addr);
+    out[0] = '\0';
+
+    if (getpeername(sock, (struct sockaddr*)&addr, &len) != 0) {
+        snprintf(out, out_sz, "unknown");
+        return;
+    }
+
+    if (addr.ss_family == AF_INET) {
+        struct sockaddr_in* a = (struct sockaddr_in*)&addr;
+        inet_ntop(AF_INET, &a->sin_addr, out, out_sz);
+    } else if (addr.ss_family == AF_INET6) {
+        struct sockaddr_in6* a6 = (struct sockaddr_in6*)&addr;
+        inet_ntop(AF_INET6, &a6->sin6_addr, out, out_sz);
+    } else {
+        snprintf(out, out_sz, "unknown");
+    }
+}
+
+static void write_activity_log_line(int client_sock, const char* request, const char* result) {
+    time_t now = time(NULL);
+    struct tm tm_now;
+    localtime_r(&now, &tm_now);
+
+    char time_buf[32];
+    strftime(time_buf, sizeof(time_buf), "%d/%m/%Y %H:%M:%S", &tm_now);
+
+    char ip[64];
+    get_client_ip_str(client_sock, ip, sizeof(ip));
+
+    char req_buf[512];
+    char res_buf[512];
+    snprintf(req_buf, sizeof(req_buf), "%s", request ? request : "");
+    snprintf(res_buf, sizeof(res_buf), "%s", result ? result : "");
+
+    sanitize_for_log(req_buf);
+    sanitize_for_log(res_buf);
+
+    pthread_mutex_lock(&g_log_mutex);
+    FILE* f = fopen(LOG_FILE_NAME, "a");
+    if (f) {
+        fprintf(f, "[%s]$%s$%s$%s\n", time_buf, ip, req_buf, res_buf);
+        fclose(f);
+    }
+    pthread_mutex_unlock(&g_log_mutex);
+}
+
+// Wrapper: gửi response rồi log
+int send_response_with_log(int client_sock, int code, const char* message, const char* extra_data) {
+    int sent = send_response(client_sock, code, message, extra_data);
+
+    char result[768];
+    if (extra_data && extra_data[0] != '\0') {
+        snprintf(result, sizeof(result), "%d|%s|%s", code, message ? message : "", extra_data);
+    } else {
+        snprintf(result, sizeof(result), "%d|%s", code, message ? message : "");
+    }
+
+    write_activity_log_line(client_sock, tls_current_request, result);
+    return sent;
+}

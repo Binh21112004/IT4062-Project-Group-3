@@ -550,47 +550,70 @@ int db_get_friend_requests(int user_id, char*** results, int* count) {
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 int db_get_friends_list(int user_id, char*** results, int* count) {
-    if (!conn) return -1;
-    
-    char user_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    
-    const char* paramValues[1] = {user_id_str};
-    
-    // Query danh sách bạn bè và JOIN với users để lấy thông tin chi tiết
-    PGresult* res = PQexecParams(conn,
-        "SELECT u.user_id, u.username, u.email "
+    if (!conn || !results || !count) return -1;
+
+    char uid[20];
+    snprintf(uid, sizeof(uid), "%d", user_id);
+
+    const char* params[1] = { uid };
+
+    PGresult* res = PQexecParams(
+        conn,
+        "SELECT "
+        "CASE "
+        "  WHEN f.user1_id = $1 THEN u2.user_id "
+        "  ELSE u1.user_id "
+        "END AS friend_id, "
+        "CASE "
+        "  WHEN f.user1_id = $1 THEN u2.username "
+        "  ELSE u1.username "
+        "END AS username, "
+        "CASE "
+        "  WHEN f.user1_id = $1 THEN u2.email "
+        "  ELSE u1.email "
+        "END AS email "
         "FROM friendships f "
-        "JOIN users u ON (f.friend_id = u.user_id) "
-        "WHERE f.user_id = $1 "
-        "ORDER BY u.username",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
+        "JOIN users u1 ON u1.user_id = f.user1_id "
+        "JOIN users u2 ON u2.user_id = f.user2_id "
+        "WHERE f.user1_id = $1 OR f.user2_id = $1 "
+        "ORDER BY username",
+        1, NULL, params, NULL, NULL, 0
+    );
+
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_get_friends_list error: %s\n", PQerrorMessage(conn));
         PQclear(res);
         return -1;
     }
-    
-    // Lấy số lượng rows
+
     *count = PQntuples(res);
-    
-    // Cấp phát bộ nhớ cho mảng kết quả
-    *results = malloc(*count * sizeof(char*));
-    
-    // Format mỗi row thành string: user_id|username|email
+    *results = NULL;
+
+    if (*count == 0) {
+        PQclear(res);
+        return 0;
+    }
+
+    *results = (char**)malloc(*count * sizeof(char*));
+    if (!*results) {
+        PQclear(res);
+        return -1;
+    }
+
     for (int i = 0; i < *count; i++) {
         char buffer[512];
         snprintf(buffer, sizeof(buffer), "%s|%s|%s",
-                 PQgetvalue(res, i, 0), // user_id
+                 PQgetvalue(res, i, 0), // friend_id
                  PQgetvalue(res, i, 1), // username
-                 PQgetvalue(res, i, 2)); // email
-        
+                 PQgetvalue(res, i, 2)  // email
+        );
         (*results)[i] = strdup(buffer);
     }
-    
+
     PQclear(res);
     return 0;
 }
+
 
 // Check if two users are friends
 int db_check_friendship(int user_id1, int user_id2) {
@@ -1109,94 +1132,221 @@ int db_check_participant(int user_id, int event_id) {
 }
 
 /**
- * Chức năng : Gửi lời mời tham gia sự kiện
- * - Tạo bản ghi invitation trong bảng event_invitations
- * - Status mặc định là 'pending'
- * @return invitation_id nếu thành công, -1 nếu lỗi
+ * Gửi lời mời tham gia sự kiện
+ * @return invitation_id nếu OK
+ *         -1  DB error
+ *         -2  Event không tồn tại / không active
+ *         -3  User nhận không tồn tại / inactive
+ *         -4  Không có quyền mời (không phải creator)
+ *         -5  Đã có invitation pending
+ *         -6  Người nhận đã tham gia event
+ *         -7  Không thể tự mời chính mình
  */
-int db_send_event_invitation(int event_id, int inviter_id, int invitee_id) {
+int db_send_event_invitation(int event_id, int sender_id, int receiver_id) {
     if (!conn) return -1;
-    
-    char event_id_str[20], inviter_id_str[20], invitee_id_str[20];
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    snprintf(inviter_id_str, sizeof(inviter_id_str), "%d", inviter_id);
-    snprintf(invitee_id_str, sizeof(invitee_id_str), "%d", invitee_id);
-    
-    const char* paramValues[3] = {event_id_str, inviter_id_str, invitee_id_str};
-    
-    // INSERT lời mời và trả về invitation_id
-    PGresult* res = PQexecParams(conn,
-        "INSERT INTO event_invitations (event_id, inviter_id, invitee_id) VALUES ($1, $2, $3) RETURNING invitation_id",
-        3, NULL, paramValues, NULL, NULL, 0);
-    
+    if (sender_id == receiver_id) return -7;
+
+    char eid[20], sid[20], rid[20];
+    snprintf(eid, sizeof(eid), "%d", event_id);
+    snprintf(sid, sizeof(sid), "%d", sender_id);
+    snprintf(rid, sizeof(rid), "%d", receiver_id);
+
+    PGresult* res;
+
+    /* 1. Check event tồn tại + active + quyền */
+    const char* p_event[1] = { eid };
+    res = PQexecParams(
+        conn,
+        "SELECT creator_id, status FROM events WHERE event_id = $1",
+        1, NULL, p_event, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return -2;
+    }
+
+    int creator_id = atoi(PQgetvalue(res, 0, 0));
+    const char* ev_status = PQgetvalue(res, 0, 1);
+    PQclear(res);
+
+    if (strcmp(ev_status, "active") != 0) return -2;
+    if (creator_id != sender_id) return -4;
+
+    /* 2. Check receiver tồn tại */
+    const char* p_user[1] = { rid };
+    res = PQexecParams(
+        conn,
+        "SELECT 1 FROM users WHERE user_id = $1 AND status = 'active'",
+        1, NULL, p_user, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return -3;
+    }
+    PQclear(res);
+
+    /* 3. Check receiver đã tham gia event chưa */
+    const char* p_joined[2] = { eid, rid };
+    res = PQexecParams(
+        conn,
+        "SELECT 1 FROM event_participants WHERE event_id=$1 AND user_id=$2",
+        2, NULL, p_joined, NULL, NULL, 0
+    );
+
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
         PQclear(res);
         return -1;
     }
-    
+    if (PQntuples(res) > 0) {
+        PQclear(res);
+        return -6;
+    }
+    PQclear(res);
+
+    /* 4. Check invitation pending đã tồn tại */
+    const char* p_pending[3] = { eid, sid, rid };
+    res = PQexecParams(
+        conn,
+        "SELECT invitation_id FROM event_invitations "
+        "WHERE event_id=$1 AND sender_id=$2 AND receiver_id=$3 AND status='pending'",
+        3, NULL, p_pending, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        PQclear(res);
+        return -1;
+    }
+    if (PQntuples(res) > 0) {
+        PQclear(res);
+        return -5;
+    }
+    PQclear(res);
+
+    /* 5. Insert invitation */
+    res = PQexecParams(
+        conn,
+        "INSERT INTO event_invitations (event_id, sender_id, receiver_id, status) "
+        "VALUES ($1,$2,$3,'pending') RETURNING invitation_id",
+        3, NULL, p_pending, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        PQclear(res);
+        return -1;
+    }
+
     int invitation_id = atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
-    
+
+    /* 6. Log */
+    char detail[256];
+    snprintf(detail, sizeof(detail),
+             "Sent event invitation to user %d for event %d",
+             receiver_id, event_id);
+    db_log_activity(sender_id, "EVENT_INVITATION_SENT", detail);
+
     return invitation_id;
 }
 
+
 /**
- * Chức năng : Chấp nhận lời mời tham gia sự kiện
- * - Update status của invitation thành 'accepted'
- * - Tự động thêm user vào event_participants
- * - Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu
- * @return 0 nếu thành công, -1 nếu lỗi
+ * Chấp nhận lời mời tham gia sự kiện
+ * @param invitee_id        ID người nhận lời mời
+ * @param inviter_username Tên người gửi lời mời
+ * @return 0 nếu thành công
+ *        -1 lỗi DB
+ *        -2 không tìm thấy lời mời pending
  */
-int db_accept_event_invitation(int invitation_id) {
-    if (!conn) return -1;
-    
-    char invitation_id_str[20];
-    snprintf(invitation_id_str, sizeof(invitation_id_str), "%d", invitation_id);
-    
-    // Bắt đầu transaction
+// return: 0 success, -2 not found, -1 db error
+int db_accept_event_invitation(int receiver_id, const char* sender_username) {
+    if (!conn || !sender_username || sender_username[0] == '\0') return -1;
+
+    char receiver_id_str[20];
+    snprintf(receiver_id_str, sizeof(receiver_id_str), "%d", receiver_id);
+
+    // BEGIN transaction
     PGresult* res = PQexec(conn, "BEGIN");
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        PQclear(res);
+        return -1;
+    }
     PQclear(res);
-    
-    // Lấy thông tin event_id và invitee_id từ invitation
-    const char* paramValues1[1] = {invitation_id_str};
-    res = PQexecParams(conn,
-        "SELECT event_id, invitee_id FROM event_invitations WHERE invitation_id = $1 AND status = 'pending'",
-        1, NULL, paramValues1, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+
+    // 1) Find pending invitation by (receiver_id + sender_username)
+    const char* params1[2] = { sender_username, receiver_id_str };
+
+    res = PQexecParams(
+        conn,
+        "SELECT ei.invitation_id, ei.event_id "
+        "FROM event_invitations ei "
+        "JOIN users u ON ei.sender_id = u.user_id "
+        "WHERE u.username = $1 "
+        "  AND ei.receiver_id = $2 "
+        "  AND ei.status = 'pending' "
+        "ORDER BY ei.created_at DESC "
+        "LIMIT 1",
+        2, NULL, params1, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_accept_event_invitation query error: %s\n", PQerrorMessage(conn));
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return -1;
     }
-    
-    int event_id = atoi(PQgetvalue(res, 0, 0));
-    int invitee_id = atoi(PQgetvalue(res, 0, 1));
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return -2; // not found pending invitation
+    }
+
+    int invitation_id = atoi(PQgetvalue(res, 0, 0));
+    int event_id      = atoi(PQgetvalue(res, 0, 1));
     PQclear(res);
-    
-    // Update status của invitation thành 'accepted'
-    res = PQexecParams(conn,
-        "UPDATE event_invitations SET status = 'accepted' WHERE invitation_id = $1",
-        1, NULL, paramValues1, NULL, NULL, 0);
-    
+
+    // 2) Update invitation -> accepted
+    char invitation_id_str[20];
+    snprintf(invitation_id_str, sizeof(invitation_id_str), "%d", invitation_id);
+    const char* params2[1] = { invitation_id_str };
+
+    res = PQexecParams(
+        conn,
+        "UPDATE event_invitations "
+        "SET status = 'accepted', responded_at = CURRENT_TIMESTAMP "
+        "WHERE invitation_id = $1 AND status = 'pending'",
+        1, NULL, params2, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "db_accept_event_invitation update error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        PQexec(conn, "ROLLBACK");
+        return -1;
+    }
+    PQclear(res);
+
+    // 3) Add receiver to participants (db_join_event should handle duplicate safely if possible)
+    if (db_join_event(receiver_id, event_id) < 0) {
+        PQexec(conn, "ROLLBACK");
+        return -1;
+    }
+
+    // COMMIT
+    res = PQexec(conn, "COMMIT");
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return -1;
     }
     PQclear(res);
-    
-    // Thêm user vào danh sách tham gia sự kiện
-    if (db_join_event(invitee_id, event_id) < 0) {
-        PQexec(conn, "ROLLBACK");
-        return -1;
-    }
-    
-    // Commit transaction
-    res = PQexec(conn, "COMMIT");
-    PQclear(res);
-    
+
     return 0;
 }
+
+
 
 // Reject event invitation
 int db_reject_event_invitation(int invitation_id) {
@@ -1259,94 +1409,266 @@ int db_get_user_invitations(int user_id, char*** results, int* count) {
 }
 
 /**
- * Chức năng : Tạo yêu cầu tham gia sự kiện public
+ * Chức năng: Tạo yêu cầu tham gia sự kiện public
  * - User gửi request để tham gia sự kiện
- * - Status mặc định là 'pending'
+ * - Status mặc định là 'pending' (theo DB default)
  * - Cần admin/creator approve mới được tham gia
- * @return request_id nếu thành công, -1 nếu lỗi
+ *
+ * @return:
+ *  >0  = request_id (tạo request thành công)
+ *   0  = đã join rồi (đã có trong event_participants)
+ *  -1  = lỗi database
+ *  -2  = event không tồn tại / không active
+ *  -3  = event private (không được join trực tiếp)
  */
 int db_create_join_request(int user_id, int event_id) {
     if (!conn) return -1;
-    
+    if (user_id <= 0 || event_id <= 0) return -1;
+
     char user_id_str[20], event_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
+    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);  
     snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[2] = {user_id_str, event_id_str};
-    
-    // INSERT request và trả về request_id
-    PGresult* res = PQexecParams(conn,
-        "INSERT INTO event_join_requests (user_id, event_id) VALUES ($1, $2) RETURNING request_id",
-        2, NULL, paramValues, NULL, NULL, 0);
-    
+
+    /* =========================
+       1) Check event exists + active + type
+       ========================= */
+    const char* p_event[1] = { event_id_str };
+    PGresult* res = PQexecParams(
+        conn,
+        "SELECT event_type FROM events "
+        "WHERE event_id = $1 AND status = 'active'",
+        1, NULL, p_event, NULL, NULL, 0
+    );
+
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_create_join_request check event error: %s\n", PQerrorMessage(conn));
         PQclear(res);
         return -1;
     }
-    
+
+    if (PQntuples(res) == 0) {
+        PQclear(res);
+        return -2; // event not found or not active
+    }
+
+    const char* event_type = PQgetvalue(res, 0, 0);
+    PQclear(res);
+
+    if (event_type && strcmp(event_type, "private") == 0) {
+        return -3; // private => cannot join directly
+    }
+
+    /* =========================
+       2) Check already joined?
+       ========================= */
+    const char* p_join[2] = { event_id_str, user_id_str };
+    res = PQexecParams(
+        conn,
+        "SELECT 1 FROM event_participants "
+        "WHERE event_id = $1 AND user_id = $2",
+        2, NULL, p_join, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_create_join_request check participant error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
+    if (PQntuples(res) > 0) {
+        PQclear(res);
+        return 0; // already joined
+    }
+    PQclear(res);
+
+    /* =========================
+       3) Insert join request -> RETURNING request_id
+       ========================= */
+    const char* paramValues[2] = { user_id_str, event_id_str };
+    res = PQexecParams(
+        conn,
+        "INSERT INTO event_join_requests (user_id, event_id) "
+        "VALUES ($1, $2) RETURNING join_request_id",
+        2, NULL, paramValues, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_create_join_request insert error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
     int request_id = atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
-    
+
     return request_id;
 }
 
+
 /**
- * Chức năng : Chấp nhận yêu cầu tham gia sự kiện
- * - Update status của request thành 'approved'
- * - Tự động thêm user vào event_participants
- * - Sử dụng transaction để đảm bảo tính toàn vẹn dữ liệu
- * @return 0 nếu thành công, -1 nếu lỗi
+ * Chức năng: Creator chấp nhận yêu cầu tham gia sự kiện (join request)
+ * Input:
+ *  - creator_id   : user_id của người tạo sự kiện (người approve)
+ *  - event_id     : event_id của sự kiện
+ *  - join_username: username của người gửi request tham gia
+ *
+ * Return:
+ *  0  = thành công
+ * -1  = lỗi DB / transaction
+ * -2  = không có request pending tương ứng
+ * -3  = event không tồn tại hoặc không thuộc creator_id
+ * -4  = join_username không tồn tại / không active
  */
-int db_approve_join_request(int request_id) {
-    if (!conn) return -1;
-    
-    char request_id_str[20];
-    snprintf(request_id_str, sizeof(request_id_str), "%d", request_id);
-    
-    // Bắt đầu transaction
-    PGresult* res = PQexec(conn, "BEGIN");
+int db_approve_join_request_by_creator(int creator_id, int event_id, const char* join_username)
+{
+    PGconn *conn = db_get_connection();
+    PGresult *res = NULL;
+
+    int join_user_id = -1;
+    int join_request_id = -1;
+
+    if (!conn || PQstatus(conn) != CONNECTION_OK) {
+        return -1;
+    }
+
+    /* BEGIN TRANSACTION */
+    res = PQexec(conn, "BEGIN");
+    if (!res || PQresultStatus(res) != PGRES_COMMAND_OK) goto db_error;
     PQclear(res);
-    
-    // Lấy thông tin event_id và user_id từ request
-    const char* paramValues1[1] = {request_id_str};
-    res = PQexecParams(conn,
-        "SELECT event_id, user_id FROM event_join_requests WHERE request_id = $1 AND status = 'pending'",
-        1, NULL, paramValues1, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+
+    /* 1. Check event exists & belongs to creator */
+    {
+        const char *params[2];
+        char ev_buf[16], cr_buf[16];
+        snprintf(ev_buf, sizeof(ev_buf), "%d", event_id);
+        snprintf(cr_buf, sizeof(cr_buf), "%d", creator_id);
+        params[0] = ev_buf;
+        params[1] = cr_buf;
+
+        res = PQexecParams(
+            conn,
+            "SELECT 1 FROM events "
+            "WHERE event_id = $1 AND creator_id = $2 AND status = 'active'",
+            2, NULL, params, NULL, NULL, 0
+        );
+
+        if (!res || PQresultStatus(res) != PGRES_TUPLES_OK) goto db_error;
+        if (PQntuples(res) == 0) {
+            PQclear(res);
+            PQexec(conn, "ROLLBACK");
+            return -3;
+        }
         PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return -1;
     }
-    
-    int event_id = atoi(PQgetvalue(res, 0, 0));
-    int user_id = atoi(PQgetvalue(res, 0, 1));
-    PQclear(res);
-    
-    // Update status của request thành 'approved'
-    res = PQexecParams(conn,
-        "UPDATE event_join_requests SET status = 'approved' WHERE request_id = $1",
-        1, NULL, paramValues1, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+
+    /* 2. Get join user_id by username */
+    {
+        const char *params[1] = { join_username };
+
+        res = PQexecParams(
+            conn,
+            "SELECT user_id FROM users "
+            "WHERE username = $1 AND status = 'active'",
+            1, NULL, params, NULL, NULL, 0
+        );
+
+        if (!res || PQresultStatus(res) != PGRES_TUPLES_OK) goto db_error;
+        if (PQntuples(res) == 0) {
+            PQclear(res);
+            PQexec(conn, "ROLLBACK");
+            return -4;
+        }
+
+        join_user_id = atoi(PQgetvalue(res, 0, 0));
         PQclear(res);
-        PQexec(conn, "ROLLBACK");
-        return -1;
     }
-    PQclear(res);
-    
-    // Thêm user vào danh sách tham gia sự kiện
-    if (db_join_event(user_id, event_id) < 0) {
-        PQexec(conn, "ROLLBACK");
-        return -1;
+
+    /* 3. Lock pending join request */
+    {
+        const char *params[2];
+        char ev_buf[16], uid_buf[16];
+        snprintf(ev_buf, sizeof(ev_buf), "%d", event_id);
+        snprintf(uid_buf, sizeof(uid_buf), "%d", join_user_id);
+        params[0] = ev_buf;
+        params[1] = uid_buf;
+
+        res = PQexecParams(
+            conn,
+            "SELECT join_request_id "
+            "FROM event_join_requests "
+            "WHERE event_id = $1 AND user_id = $2 AND status = 'pending' "
+            "FOR UPDATE",
+            2, NULL, params, NULL, NULL, 0
+        );
+
+        if (!res || PQresultStatus(res) != PGRES_TUPLES_OK) goto db_error;
+        if (PQntuples(res) == 0) {
+            PQclear(res);
+            PQexec(conn, "ROLLBACK");
+            return -2;
+        }
+
+        join_request_id = atoi(PQgetvalue(res, 0, 0));
+        PQclear(res);
     }
-    
-    // Commit transaction
+
+    /* 4. Update join request -> accepted */
+    {
+        const char *params[1];
+        char rid_buf[16];
+        snprintf(rid_buf, sizeof(rid_buf), "%d", join_request_id);
+        params[0] = rid_buf;
+
+        res = PQexecParams(
+            conn,
+            "UPDATE event_join_requests "
+            "SET status = 'accepted', responded_at = CURRENT_TIMESTAMP "
+            "WHERE join_request_id = $1",
+            1, NULL, params, NULL, NULL, 0
+        );
+
+        if (!res || PQresultStatus(res) != PGRES_COMMAND_OK) goto db_error;
+        PQclear(res);
+    }
+
+    /* 5. Insert participant (FIX: role = 'participant') */
+    {
+        const char *params[2];
+        char ev_buf[16], uid_buf[16];
+        snprintf(ev_buf, sizeof(ev_buf), "%d", event_id);
+        snprintf(uid_buf, sizeof(uid_buf), "%d", join_user_id);
+        params[0] = ev_buf;
+        params[1] = uid_buf;
+
+        res = PQexecParams(
+            conn,
+            "INSERT INTO event_participants (event_id, user_id, role) "
+            "VALUES ($1, $2, 'participant') "
+            "ON CONFLICT (event_id, user_id) DO NOTHING",
+            2, NULL, params, NULL, NULL, 0
+        );
+
+        if (!res || PQresultStatus(res) != PGRES_COMMAND_OK) goto db_error;
+        PQclear(res);
+    }
+
+    /* COMMIT */
     res = PQexec(conn, "COMMIT");
+    if (!res || PQresultStatus(res) != PGRES_COMMAND_OK) goto db_error;
     PQclear(res);
-    
+
     return 0;
+
+/* ================= ERROR HANDLING ================= */
+
+db_error:
+    if (res) PQclear(res);
+    PQexec(conn, "ROLLBACK");
+    return -1;
 }
+
+
+
 
 // Reject join request
 int db_reject_join_request(int request_id) {
@@ -1358,7 +1680,7 @@ int db_reject_join_request(int request_id) {
     const char* paramValues[1] = {request_id_str};
     
     PGresult* res = PQexecParams(conn,
-        "UPDATE event_join_requests SET status = 'rejected' WHERE request_id = $1 AND status = 'pending'",
+        "UPDATE event_join_requests SET status = 'rejected' WHERE join_request_id = $1 AND status = 'pending'",
         1, NULL, paramValues, NULL, NULL, 0);
     
     int success = PQresultStatus(res) == PGRES_COMMAND_OK;

@@ -73,7 +73,6 @@ CREATE TABLE friendships (
     CHECK (user1_id < user2_id),  -- Đảm bảo user1_id < user2_id để tránh trùng lặp
     UNIQUE(user1_id, user2_id)
 );
-
 CREATE INDEX idx_friendships_user1 ON friendships(user1_id);
 CREATE INDEX idx_friendships_user2 ON friendships(user2_id);
 
@@ -260,22 +259,4 @@ CREATE TRIGGER trigger_add_creator_to_participants
 AFTER INSERT ON events
 FOR EACH ROW
 EXECUTE FUNCTION add_creator_to_participants();
-
--- =========================================
--- SAMPLE DATA (for testing)
--- =========================================
-
--- Insert sample users (password: 123456, cần hash trong thực tế)
-INSERT INTO users (username, password, email) VALUES
-('john', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'john@example.com'),
-('alice', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'alice@example.com'),
-('bob', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'bob@example.com');
-
--- Insert sample friendships
-INSERT INTO friendships (user1_id, user2_id) VALUES (1, 2), (1, 3);
-
--- Insert sample event
-INSERT INTO events (creator_id, title, description, location, event_time, event_type) VALUES
-(1, 'Birthday Party', 'Join my birthday celebration!', 'Hanoi', '2025-12-25 18:00:00', 'private');
-
 

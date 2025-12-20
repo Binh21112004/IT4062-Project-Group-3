@@ -24,5 +24,11 @@ void handle_client_request(ServerContext* ctx, int client_sock, const char* buff
 void handle_create_event(ServerContext* ctx, int client_sock, char** fields, int field_count); // New
 void handle_get_events(ServerContext* ctx, int client_sock, char** fields, int field_count); // New
 void handle_get_event_detail(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan 2
-
+void handle_update_event(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan 2
+void handle_delete_event(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan 2
+void handle_get_friends(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan 3
+void handle_send_invitation_event(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan3
+void handle_accept_invitation_request(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan3
+void handle_join_event(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan3
+void handle_accept_join_request(ServerContext* ctx, int client_sock, char** fields, int field_count); // Tuan3
 #endif 

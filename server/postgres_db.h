@@ -40,7 +40,7 @@ int db_reject_friend_request(int request_id);
 int db_cancel_friend_request(int request_id);
 int db_remove_friend(int user_id, int friend_id);
 int db_get_friend_requests(int user_id, char*** results, int* count);
-
+int db_get_friends_list(int user_id, char*** results, int* count);
 /**
  * Chức năng : Lấy danh sách bạn bè của user
  * @param user_id - ID của user cần lấy danh sách bạn bè
@@ -126,18 +126,21 @@ int db_check_participant(int user_id, int event_id);
 /**
  * Chức năng : Gửi lời mời tham gia sự kiện
  * @param event_id - ID của sự kiện
- * @param inviter_id - ID của người gửi lời mời
- * @param invitee_id - ID của người được mời
+ * @param sender_id - ID của người gửi lời mời
+ * @param receiver_id - ID của người được mời
  * @return invitation_id nếu thành công, -1 nếu lỗi
  */
-int db_send_event_invitation(int event_id, int inviter_id, int invitee_id);
+int db_send_event_invitation(int event_id, int sender_id, int receiver_id);
 
 /**
- * Chức năng : Chấp nhận lời mời tham gia sự kiện
- * @param invitation_id - ID của lời mời
- * @return 0 nếu thành công, -1 nếu lỗi
+ * Chấp nhận lời mời tham gia sự kiện
+ * @param invitee_id        ID người nhận lời mời
+ * @param inviter_username Tên người gửi lời mời
+ * @return 0 nếu thành công
+ *        -1 lỗi DB
+ *        -2 không tìm thấy lời mời pending
  */
-int db_accept_event_invitation(int invitation_id);
+int db_accept_event_invitation(int invitee_id, const char* inviter_username);
 
 int db_reject_event_invitation(int invitation_id);
 int db_get_user_invitations(int user_id, char*** results, int* count);
@@ -156,11 +159,20 @@ int db_get_user_invitations(int user_id, char*** results, int* count);
 int db_create_join_request(int user_id, int event_id);
 
 /**
- * Chức năng : Chấp nhận yêu cầu tham gia sự kiện
- * @param request_id - ID của yêu cầu tham gia
- * @return 0 nếu thành công, -1 nếu lỗi
+ * Chức năng: Creator chấp nhận yêu cầu tham gia sự kiện (join request)
+ * Input:
+ *  - creator_id   : user_id của người tạo sự kiện (người approve)
+ *  - event_id     : event_id của sự kiện
+ *  - join_username: username của người gửi request tham gia
+ *
+ * Return:
+ *  0  = thành công
+ * -1  = lỗi DB / transaction
+ * -2  = không có request pending tương ứng
+ * -3  = event không tồn tại hoặc không thuộc creator_id
+ * -4  = join_username không tồn tại / không active
  */
-int db_approve_join_request(int request_id);
+int db_approve_join_request_by_creator(int creator_id, int event_id, const char* join_username);
 
 int db_reject_join_request(int request_id);
 int db_get_event_join_requests(int event_id, char*** results, int* count);

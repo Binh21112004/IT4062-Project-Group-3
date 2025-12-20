@@ -1,0 +1,12 @@
+[20/12/2025 15:00:11]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w
+[20/12/2025 15:00:53]$127.0.0.1$CREATE_EVENT|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w|Ducanhtest|2025-12-12 18:18:18|Hust|public|Khongco$200|Event created successfully|11
+[20/12/2025 15:01:16]$127.0.0.1$REGISTER|ducanh03|1234|ducanh03@gmail.com$409|Username already exists
+[20/12/2025 15:01:35]$127.0.0.1$REGISTER|ducanh05|1234|ducanh05@gmail.com$200|Registration successful
+[20/12/2025 15:01:42]$127.0.0.1$LOGIN|ducanh05|1234$200|Login successful|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ
+[20/12/2025 15:01:47]$127.0.0.1$GET_EVENTS|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[20/12/2025 15:02:12]$127.0.0.1$GET_EVENTS|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[20/12/2025 15:02:15]$127.0.0.1$GET_FRIENDS|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[20/12/2025 15:02:18]$127.0.0.1$SEND_INVITATION_EVENT|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w|ducanh05|11$200|Event invitation sent successfully
+[20/12/2025 15:02:29]$127.0.0.1$ACCEPT_INVITATION_REQUEST|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ|huyen$200|Event invitation accepted
+[20/12/2025 15:02:38]$127.0.0.1$JOIN_EVENT|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ|9$200|Join request sent successfully
+[20/12/2025 15:02:52]$127.0.0.1$ACCEPT_JOIN_REQUEST|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w|9|ducanh05$200|Join request accepted successfully

@@ -26,6 +26,11 @@ void print_menu() {
         printf("5. Get my events\n");
         printf("6. Edit event\n");
         printf("7. Delete event\n");
+        printf("8. Get friends list\n");
+        printf("9. Send event invitation\n");
+        printf("10. Accept event invitation\n");
+        printf("11. Join event\n");
+        printf("12. Accept join event\n");
     }
     
     printf("0. Exit\n");
@@ -460,8 +465,211 @@ void do_delete_event() {
 
     free(extra);
 }
+void do_get_friends() {
+    if (strlen(session_id) == 0) {
+        printf("[ERROR] You must login first.\n");
+        return;
+    }
 
+    const char* fields[] = { session_id };
+    send_request(client_sock, CMD_GET_FRIENDS, fields, 1);
 
+    int code;
+    char message[MAX_BUFFER];
+    char* extra = receive_response(client_sock, &code, message, MAX_BUFFER);
+
+    printf("[SERVER] (%d) %s\n", code, message);
+
+    if (code == RESPONSE_OK && extra && strlen(extra) > 0) {
+        printf("=== Your friends ===\n");
+        // mỗi dòng 1 friend, fields cách nhau bởi ';'
+        char* line = strtok(extra, "\n");
+        int i = 1;
+        while (line) {
+            printf("%d) %s\n", i++, line);
+            line = strtok(NULL, "\n");
+        }
+    } else if (code == RESPONSE_OK) {
+        printf("You have no friends.\n");
+    }
+
+    free(extra);
+}
+void do_send_invitation_event(){
+    if (strlen(session_id) == 0) {
+        printf("[ERROR] You must login first.\n");
+        return;
+    }
+    do_get_events();
+    int event_id;
+    printf("Event ID to invite: ");
+    scanf("%d", &event_id);
+    getchar();
+
+    do_get_friends();
+    char friend_username[MAX_USERNAME];
+    printf("Enter friend's username: ");
+    fflush(stdout);
+    if (fgets(friend_username, sizeof(friend_username), stdin) == NULL) return;
+    friend_username[strcspn(friend_username, "\n")] = 0;
+    
+    // Validate input
+    if (strlen(friend_username) == 0) {
+        printf("[ERROR] Username cannot be empty.\n");
+        return;
+    }
+
+    char event_id_str[16];
+    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
+    const char* fields[] = { session_id, friend_username, event_id_str };
+    send_request(client_sock, CMD_SEND_INVITATION_EVENT, fields, 3);
+    int code;
+    char message[MAX_BUFFER];
+    char* extra = receive_response(client_sock, &code, message, MAX_BUFFER);
+    printf("[SERVER] (%d) %s\n", code, message);
+
+    if (code == RESPONSE_OK) {
+    printf("[SUCCESS] %s\n", message);
+    } else if (code == RESPONSE_UNAUTHORIZED) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_NOT_FOUND) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_BAD_REQUEST) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_CONFLICT) {
+        printf("[ERROR] %s\n", message);
+    } else {
+        printf("[ERROR] %s\n", message);
+    }
+    
+    if (extra != NULL) {
+        free(extra);
+    }
+}
+// Accept invitation request
+void do_accept_invitation_request() {
+    if (strlen(session_id) == 0) {
+        printf("[ERROR] You must login first.\n");
+        return;
+    }
+    
+    char requester_username[MAX_USERNAME];
+    
+    printf("Enter requester's username: ");
+    fflush(stdout);
+    if (fgets(requester_username, sizeof(requester_username), stdin) == NULL) return;
+    requester_username[strcspn(requester_username, "\n")] = 0;
+    
+    // Validate input
+    if (strlen(requester_username) == 0) {
+        printf("[ERROR] Username cannot be empty.\n");
+        return;
+    }
+    
+    // Send request: ACCEPT_INVITATION_REQUEST|session_id|requester_username
+    const char* fields[] = {session_id, requester_username};
+    send_request(client_sock, CMD_ACCEPT_INVITATION_REQUEST, fields, 2);
+    
+    // Receive response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    printf("[SERVER] (%d) %s\n", code, message);
+    
+    if (code == RESPONSE_OK) {
+        printf("[SUCCESS] Accepted invitation from '%s'\n", requester_username);
+    } else if (code == RESPONSE_UNAUTHORIZED) {
+        printf("[ERROR] Session invalid/expired. Please login again.\n");
+    } else if (code == RESPONSE_NOT_FOUND) {
+        printf("[ERROR] No invitation from '%s' found.\n", requester_username);
+    } else if (code == RESPONSE_SERVER_ERROR) {
+        printf("[ERROR] Internal server error occurred.\n");
+    } else {
+        printf("[ERROR] Failed to accept invitation request.\n");
+        if (extra_data && strlen(extra_data) > 0) {
+            printf("Details: %s\n", extra_data);
+        }
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
+    }
+}
+void do_join_event(){
+    if (strlen(session_id) == 0) {
+        printf("[ERROR] You must login first.\n");
+        return;
+    }
+    int event_id;
+    printf("Event ID to join: ");
+    scanf("%d", &event_id);
+    getchar();
+    
+    char event_id_str[16];
+    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
+    const char* fields[] = { session_id, event_id_str };
+    send_request(client_sock, CMD_JOIN_EVENT, fields, 2);
+
+    int code;
+    char message[MAX_BUFFER];   
+    char* extra = receive_response(client_sock, &code, message, MAX_BUFFER);
+    printf("[SERVER] (%d) %s\n", code, message);
+    if (code == RESPONSE_OK) {
+        printf("[SUCCESS] %s\n", message);
+    }  else if (code == RESPONSE_UNAUTHORIZED) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_NOT_FOUND) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_CONFLICT) {
+        printf("[ERROR] %s\n", message);
+    } else {
+        printf("[ERROR] %s\n", message);
+    }
+    if (extra != NULL) {
+        free(extra);
+    }
+}
+void accept_request_join_event() {
+    if (strlen(session_id) == 0) {
+        printf("[ERROR] You must login first.\n");
+        return;
+    }
+    int event_id;
+    printf("Event ID to accept: ");
+    scanf("%d", &event_id);
+    getchar();
+
+    char join_username[MAX_USERNAME];
+    printf("Enter username accept: ");
+    fflush(stdout);
+    if (fgets(join_username, sizeof(join_username), stdin) == NULL) return;
+    join_username[strcspn(join_username, "\n")] = 0;
+
+    char event_id_str[16];
+    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
+    const char* fields[] = { session_id, event_id_str, join_username };
+    send_request(client_sock, CMD_ACCEPT_JOIN_REQUEST, fields, 3);
+
+    int code;
+    char message[MAX_BUFFER];   
+    char* extra = receive_response(client_sock, &code, message, MAX_BUFFER);
+    printf("[SERVER] (%d) %s\n", code, message);
+    if (code == RESPONSE_OK) {
+        printf("[SUCCESS] %s\n", message);
+    }  else if (code == RESPONSE_UNAUTHORIZED) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_NOT_FOUND) {
+        printf("[ERROR] %s\n", message);
+    } else if (code == RESPONSE_CONFLICT) {
+        printf("[ERROR] %s\n", message);
+    } else {
+        printf("[ERROR] %s\n", message);
+    }
+    if (extra != NULL) {
+        free(extra);
+    }
+}
 int main() {
     struct sockaddr_in server_addr;
     
@@ -520,6 +728,21 @@ int main() {
                 break;
             case 7:
                 do_delete_event();
+                break;
+            case 8:
+                do_get_friends();
+                break;
+            case 9:
+                do_send_invitation_event();
+                break;
+            case 10:
+                do_accept_invitation_request();
+                break;
+            case 11:
+                do_join_event();
+                break;  
+            case 12:
+                accept_request_join_event();
                 break;
             case 0:
                 running = 0;
