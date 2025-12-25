@@ -73,22 +73,6 @@ int db_validate_email(const char* email) {
     return 1;
 }
 
-// Generate random session token
-char* db_generate_session_token() {
-    static const char charset[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    char* token = malloc(65); // 64 chars + null terminator
-    if (!token) return NULL;
-    
-    srand(time(NULL) ^ (unsigned int)((uintptr_t)token));
-    
-    for (int i = 0; i < 64; i++) {
-        token[i] = charset[rand() % (sizeof(charset) - 1)];
-    }
-    token[64] = '\0';
-    
-    return token;
-}
-
 // Create new user
 int db_create_user(const char* username, const char* password, const char* email) {
     if (!conn) return -1;
@@ -208,119 +192,7 @@ int db_verify_password(const char* username, const char* password) {
     return found;
 }
 
-// Update user active status
-int db_update_user_status(int user_id, int is_active) {
-    if (!conn) return -1;
-    
-    char user_id_str[20];
-    const char* status_str;
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    status_str = is_active ? "active" : "inactive";
-    
-    const char* paramValues[2] = {user_id_str, status_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "UPDATE users SET status = $2 WHERE user_id = $1",
-        2, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
-    PQclear(res);
-    
-    return success ? 0 : -1;
-}
 
-// Create session
-int db_create_session(int user_id, char* session_token, int token_size) {
-    if (!conn) return -1;
-    
-    char* token = db_generate_session_token();
-    if (!token) return -1;
-    
-    char user_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    
-    const char* paramValues[2] = {user_id_str, token};
-    
-    PGresult* res = PQexecParams(conn,
-        "INSERT INTO sessions (user_id, session_token) VALUES ($1, $2) RETURNING session_id",
-        2, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        free(token);
-        PQclear(res);
-        return -1;
-    }
-    
-    strncpy(session_token, token, token_size - 1);
-    session_token[token_size - 1] = '\0';
-    
-    free(token);
-    PQclear(res);
-
-    return 0;
-}
-
-// Validate session
-int db_validate_session(const char* session_token, int* user_id) {
-    if (!conn) return 0;
-    
-    const char* paramValues[1] = {session_token};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT user_id FROM sessions WHERE session_token = $1 AND is_active = true",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        PQclear(res);
-        return 0;
-    }
-    
-    if (PQntuples(res) == 0) {
-        PQclear(res);
-        return 0; // Session not found
-    }
-    
-    *user_id = atoi(PQgetvalue(res, 0, 0));
-    PQclear(res);
-    
-    return 1; // Valid session
-}
-
-// Delete session
-int db_delete_session(const char* session_token) {
-    if (!conn) return -1;
-    
-    const char* paramValues[1] = {session_token};
-    
-    PGresult* res = PQexecParams(conn,
-        "UPDATE sessions SET is_active = false WHERE session_token = $1",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
-    PQclear(res);
-    
-    return success ? 0 : -1;
-}
-
-// Delete all user sessions
-int db_delete_user_sessions(int user_id) {
-    if (!conn) return -1;
-    
-    char user_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    
-    const char* paramValues[1] = {user_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "UPDATE sessions SET is_active = false WHERE user_id = $1",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
-    PQclear(res);
-    
-    
-    return success ? 0 : -1;
-}
 
 // Send friend request
 int db_send_friend_request(int sender_id, int receiver_id) {
@@ -568,44 +440,7 @@ int db_remove_friend(int user_id, int friend_id) {
     return success ? 0 : -1;
 }
 
-// Get friend requests
-int db_get_friend_requests(int user_id, char*** results, int* count) {
-    if (!conn) return -1;
-    
-    char user_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    
-    const char* paramValues[1] = {user_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT fr.request_id, u.username, fr.sent_at "
-        "FROM friend_requests fr "
-        "JOIN users u ON fr.sender_id = u.user_id "
-        "WHERE fr.receiver_id = $1 AND fr.status = 'pending' "
-        "ORDER BY fr.sent_at DESC",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        PQclear(res);
-        return -1;
-    }
-    
-    *count = PQntuples(res);
-    *results = malloc(*count * sizeof(char*));
-    
-    for (int i = 0; i < *count; i++) {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s",
-                 PQgetvalue(res, i, 0), // request_id
-                 PQgetvalue(res, i, 1), // username
-                 PQgetvalue(res, i, 2)); // sent_at
-        
-        (*results)[i] = strdup(buffer);
-    }
-    
-    PQclear(res);
-    return 0;
-}
+
 
 /**
  * Chức năng : Lấy danh sách bạn bè của user

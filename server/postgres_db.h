@@ -20,15 +20,8 @@ int db_find_user_by_id(int user_id, char* username, int username_size, char* ema
 int db_verify_password(const char* username, const char* password);
 int db_validate_username(const char* username);
 int db_validate_email(const char* email);
-int db_update_user_status(int user_id, int is_active);
 
-// =========================================
-// SESSION MANAGEMENT
-// =========================================
-int db_create_session(int user_id, char* session_token, int token_size);
-int db_validate_session(const char* session_token, int* user_id);
-int db_delete_session(const char* session_token);
-int db_delete_user_sessions(int user_id);
+
 
 // =========================================
 // FRIEND MANAGEMENT
@@ -41,7 +34,6 @@ int db_accept_friend_request_by_username(int receiver_id, const char* sender_use
 int db_reject_friend_request_by_username(int receiver_id, const char* sender_username);
 int db_remove_friend(int user_id, int friend_id);
 int db_remove_friend_by_username(int user_id, const char* friend_username);
-int db_get_friend_requests(int user_id, char*** results, int* count);
 int db_get_friends_list(int user_id, char*** results, int* count);
 /**
  * Chức năng : Lấy danh sách bạn bè của user
@@ -159,6 +151,6 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
 // UTILITY FUNCTIONS
 // =========================================
 void db_free_results(char*** results, int count);
-char* db_generate_session_token();
+
 
 #endif // POSTGRES_DB_H
