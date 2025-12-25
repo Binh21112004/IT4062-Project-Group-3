@@ -10,3 +10,49 @@
 [20/12/2025 15:02:29]$127.0.0.1$ACCEPT_INVITATION_REQUEST|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ|huyen$200|Event invitation accepted
 [20/12/2025 15:02:38]$127.0.0.1$JOIN_EVENT|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ|9$200|Join request sent successfully
 [20/12/2025 15:02:52]$127.0.0.1$ACCEPT_JOIN_REQUEST|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w|9|ducanh05$200|Join request accepted successfully
+[21/12/2025 20:33:34]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|pmgPnYo8ja9oBMdCVTR0YhgMMoQvD6U9
+[21/12/2025 20:33:46]$127.0.0.1$LOGIN|ducanh03|1234$200|Login successful|gHRIoEM59ZKgB7WjIxVWLmqsNgAbEZ6I
+[21/12/2025 20:33:50]$127.0.0.1$GET_EVENTS|pmgPnYo8ja9oBMdCVTR0YhgMMoQvD6U9$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:33:55]$127.0.0.1$GET_EVENTS|pmgPnYo8ja9oBMdCVTR0YhgMMoQvD6U9$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:34:01]$127.0.0.1$GET_FRIENDS|pmgPnYo8ja9oBMdCVTR0YhgMMoQvD6U9$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[21/12/2025 20:34:37]$127.0.0.1$SEND_INVITATION_EVENT|pmgPnYo8ja9oBMdCVTR0YhgMMoQvD6U9|ducanh03|3$200|Event invitation sent successfully
+[21/12/2025 20:34:48]$127.0.0.1$ACCEPT_INVITATION_REQUEST|gHRIoEM59ZKgB7WjIxVWLmqsNgAbEZ6I|huyen$200|Event invitation accepted
+[21/12/2025 20:54:12]$127.0.0.1$REGISTER|âdada|dâdad|adadas$422|Invalid email format
+[21/12/2025 20:54:24]$127.0.0.1$REGISTER|huyen|1234|a@gmail.com$409|Username already exists
+[21/12/2025 20:54:43]$127.0.0.1$REGISTER|ducanh10|1234|ducanh10@gmail.com$200|Registration successful
+[21/12/2025 20:54:49]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV
+[21/12/2025 20:55:04]$127.0.0.1$GET_EVENTS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:55:30]$127.0.0.1$GET_EVENTS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:55:47]$127.0.0.1$GET_EVENT_DETAIL|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV|1$404|Event not found
+[21/12/2025 20:56:03]$127.0.0.1$GET_EVENTS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:56:11]$127.0.0.1$DELETE_EVENT|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV|1$404|Event not found
+[21/12/2025 20:56:19]$127.0.0.1$GET_FRIENDS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[21/12/2025 20:56:52]$127.0.0.1$GET_EVENTS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:56:54]$127.0.0.1$GET_FRIENDS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[21/12/2025 20:56:57]$127.0.0.1$SEND_INVITATION_EVENT|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV|ducanh01|3$409|Event invitation already pending
+[21/12/2025 20:57:35]$127.0.0.1$LOGIN|ducanh01|1234$200|Login successful|QEM6NZ5psQEKACQGc8Yj5pXNcSTZport
+[21/12/2025 20:57:39]$127.0.0.1$ACCEPT_INVITATION_REQUEST|QEM6NZ5psQEKACQGc8Yj5pXNcSTZport|huyen$500|Internal server error
+[21/12/2025 20:58:18]$127.0.0.1$GET_EVENTS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 20:58:21]$127.0.0.1$GET_FRIENDS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[21/12/2025 20:58:24]$127.0.0.1$SEND_INVITATION_EVENT|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV|ducanh01|11$200|Event invitation sent successfully
+[21/12/2025 20:58:36]$127.0.0.1$ACCEPT_INVITATION_REQUEST|QEM6NZ5psQEKACQGc8Yj5pXNcSTZport|huyen$200|Event invitation accepted
+[21/12/2025 21:04:27]$127.0.0.1$GET_EVENTS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[21/12/2025 21:04:34]$127.0.0.1$GET_FRIENDS|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[21/12/2025 21:04:46]$127.0.0.1$SEND_INVITATION_EVENT|h78j5NeXo4H64d07CG5OX5OnZQ8VNMyV|ducanh01|11$409|Event invitation already pending
+[22/12/2025 15:52:41]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|s9SDGNez9BXk8WQ1FiUY7NzbKs9nQRzQ
+[22/12/2025 16:37:49]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|uxj9hVYMgz7PvoM4xtF01CdqcolTwLwK
+[22/12/2025 16:37:52]$127.0.0.1$GET_EVENTS|uxj9hVYMgz7PvoM4xtF01CdqcolTwLwK$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[22/12/2025 16:38:06]$127.0.0.1$LOGIN|ducanh10|1234$200|Login successful|OHphq979BWTZpXxlZw0QSmfU1B0BSIfm
+[22/12/2025 16:38:12]$127.0.0.1$GET_EVENTS|uxj9hVYMgz7PvoM4xtF01CdqcolTwLwK$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active
+[22/12/2025 16:38:28]$127.0.0.1$GET_FRIENDS|uxj9hVYMgz7PvoM4xtF01CdqcolTwLwK$200|Friends list retrieved successfully|7|ducanh01|ducanh01@gmail.com
+[22/12/2025 16:38:31]$127.0.0.1$SEND_INVITATION_EVENT|uxj9hVYMgz7PvoM4xtF01CdqcolTwLwK|ducanh10|10$200|Event invitation sent successfully
+[22/12/2025 16:39:07]$127.0.0.1$ACCEPT_INVITATION_REQUEST|OHphq979BWTZpXxlZw0QSmfU1B0BSIfm|huyen|10$200|Event invitation accepted
+[22/12/2025 16:44:02]$127.0.0.1$LOGIN|ducanh10|1234$200|Login successful|fyIkAi9dGJAjKViu63MlAfPoi16ihZjx
+[22/12/2025 16:44:05]$127.0.0.1$GET_EVENTS|fyIkAi9dGJAjKViu63MlAfPoi16ihZjx$200|Event list retrieved successfully|10;test2;adadada;2025-12-25 18:00:00;public;active
+[22/12/2025 16:45:00]$127.0.0.1$CREATE_EVENT|fyIkAi9dGJAjKViu63MlAfPoi16ihZjx|Sinhnhat|2026-01-10 18:18:18|Ftu|private|Chucmungsinhnhat$200|Event created successfully|12
+[22/12/2025 16:45:16]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|H635mzUnfvIJh90QDYySoKOD3y1JcWzl
+[22/12/2025 16:45:24]$127.0.0.1$JOIN_EVENT|H635mzUnfvIJh90QDYySoKOD3y1JcWzl|12$200|Join request sent successfully
+[22/12/2025 16:54:04]$127.0.0.1$LOGIN|ducanh10|1234$200|Login successful|ICkgusTHJgTwVCYAQYvJQcaSznuNl59Q
+[22/12/2025 16:54:05]$127.0.0.1$GET_EVENTS|ICkgusTHJgTwVCYAQYvJQcaSznuNl59Q$200|Event list retrieved successfully|10;test2;adadada;2025-12-25 18:00:00;public;active 12;Sinhnhat;Ftu;2026-01-10 18:18:18;private;active
+[22/12/2025 16:54:21]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|lnNnX32JTjKwrqYJX2aclXubBGwEA9sL
+[22/12/2025 16:54:39]$127.0.0.1$JOIN_EVENT|lnNnX32JTjKwrqYJX2aclXubBGwEA9sL|10$409|This event is public. No join request is needed.

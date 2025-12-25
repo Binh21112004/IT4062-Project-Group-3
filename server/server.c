@@ -553,7 +553,6 @@ void handle_send_invitation_event(ServerContext* ctx, int client_sock, char** fi
     const char* friend_username = fields[1];
     const char* event_id_str = fields[2];
     
-    // Validate session
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (session == NULL || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
@@ -575,7 +574,6 @@ void handle_send_invitation_event(ServerContext* ctx, int client_sock, char** fi
         return;
     }
     
-    // Kiểm tra không tự gửi lời mời cho chính mình
     if (sender_id == receiver_id) {
         send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Cannot send friend request to yourself", NULL);
         printf("[SEND_FRIEND_REQUEST] Failed - User trying to send request to self\n");
@@ -591,49 +589,29 @@ void handle_send_invitation_event(ServerContext* ctx, int client_sock, char** fi
         printf("[SEND_EVENT_INVITATION] Success - sender=%d invited receiver=%d to event=%d (invitation_id=%d)\n",
             sender_id, receiver_id, event_id, invitation_id);
 
-    } else if (invitation_id == -2) {
-        // Event không tồn tại / không active
+    } else if (invitation_id == -2) { // Event không tồn tại 
         send_response_with_log(client_sock, RESPONSE_NOT_FOUND, "Event not found or inactive", NULL);
         printf("[SEND_EVENT_INVITATION] Failed - Event %d not found or inactive\n", event_id);
-
-    } else if (invitation_id == -3) {
-        // Receiver không tồn tại / inactive
-        send_response_with_log(client_sock, RESPONSE_NOT_FOUND, "User not found or inactive", NULL);
-        printf("[SEND_EVENT_INVITATION] Failed - Receiver %d not found or inactive\n", receiver_id);
-
     } else if (invitation_id == -4) {
-        // Không có quyền mời (không phải creator)
+        //không phải người tạo 
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "You are not allowed to invite to this event", NULL);
         printf("[SEND_EVENT_INVITATION] Failed - sender=%d is not creator of event=%d\n", sender_id, event_id);
 
     } else if (invitation_id == -5) {
-        // Đã có lời mời pending
+        // Đã gửi lời mời rồi.
         send_response_with_log(client_sock, RESPONSE_CONFLICT, "Event invitation already pending", NULL);
-        printf("[SEND_EVENT_INVITATION] Failed - Invitation already pending (event=%d sender=%d receiver=%d)\n",
-            event_id, sender_id, receiver_id);
-
+        printf("[SEND_EVENT_INVITATION] Failed - Invitation already pending (event=%d sender=%d receiver=%d)\n",event_id, sender_id, receiver_id);
     } else if (invitation_id == -6) {
         // Người nhận đã tham gia event
         send_response_with_log(client_sock, RESPONSE_CONFLICT, "User already joined this event", NULL);
         printf("[SEND_EVENT_INVITATION] Failed - Receiver %d already joined event %d\n", receiver_id, event_id);
-
-    } else if (invitation_id == -7) {
-        // Tự mời chính mình
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "You cannot invite yourself", NULL);
-        printf("[SEND_EVENT_INVITATION] Failed - sender=%d tried to invite self to event=%d\n", sender_id, event_id);
-
     } else {
-        // -1 hoặc lỗi khác
         send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         printf("[SEND_EVENT_INVITATION] Failed - Database error (rc=%d)\n", invitation_id);
     }
-
 }
-
-// Protocol: ACCEPT_INVITATION_REQUEST|session_id|requester_username
-// ACCEPT_INVITATION_REQUEST|session_id|requester_username
 void handle_accept_invitation_request(ServerContext* ctx, int client_sock, char** fields, int field_count) {
-    if (field_count != 2) {
+    if (field_count != 3) {
         send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Invalid request format", NULL);
         printf("[ACCEPT_INVITATION_REQUEST] Failed - Invalid field count (%d)\n", field_count);
         return;
@@ -641,7 +619,8 @@ void handle_accept_invitation_request(ServerContext* ctx, int client_sock, char*
 
     const char* session_token = fields[0];
     const char* requester_username = fields[1];
-
+    const char* event_id_str = fields[2];
+    int event_id = atoi(event_id_str);
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (session == NULL || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
@@ -651,7 +630,7 @@ void handle_accept_invitation_request(ServerContext* ctx, int client_sock, char*
 
     int receiver_id = session->user_id;
 
-    int result = db_accept_event_invitation(receiver_id, requester_username);
+    int result = db_accept_event_invitation(receiver_id, requester_username, event_id);
 
     if (result == 0) {
         send_response_with_log(client_sock, RESPONSE_OK, "Event invitation accepted", NULL);
@@ -685,22 +664,50 @@ void handle_join_event(ServerContext* ctx, int client_sock, char** fields, int f
 
     int user_id = session->user_id;
     int event_id = atoi(event_id_str);
+
     int result = db_create_join_request(user_id, event_id);
+
     if (result > 0) {
-        send_response_with_log(client_sock, RESPONSE_OK, "Join request sent successfully", NULL);
-        printf("[JOIN_EVENT] Success - user=%d requested to join event=%d (request_id=%d)\n",user_id, event_id, result);
+        // Tạo join request thành công (private)
+        send_response_with_log(client_sock, RESPONSE_OK,
+            "Join request created. Waiting for creator approval.", NULL);
+        printf("[JOIN_EVENT_REQUEST] Success - user=%d requested to join private event=%d (join_request_id=%d)\n",
+            user_id, event_id, result);
+
     } else if (result == 0) {
-        send_response_with_log(client_sock, RESPONSE_OK, "You have already joined this event.", NULL);
-        printf("[JOIN_EVENT] Info - user=%d already joined event=%d\n",user_id, event_id);
+        // Đã là participant rồi
+        send_response_with_log(client_sock, RESPONSE_OK,
+            "You are already a participant of this event.", NULL);
+        printf("[JOIN_EVENT_REQUEST] Info - user=%d already joined event=%d\n",
+            user_id, event_id);
+
     } else if (result == -2) {
-        send_response_with_log(client_sock, RESPONSE_NOT_FOUND, "Event not found or not active.", NULL);
-        printf("[JOIN_EVENT] Failed - event=%d not found or inactive\n",event_id);
+        // Event không tồn tại / không active
+        send_response_with_log(client_sock, RESPONSE_NOT_FOUND,
+            "Event not found or not active.", NULL);
+        printf("[JOIN_EVENT_REQUEST] Failed - event=%d not found or inactive (user=%d)\n",
+            event_id, user_id);
+
     } else if (result == -3) {
-        send_response_with_log(client_sock, RESPONSE_CONFLICT, "This is a private event. You cannot join directly.", NULL);
-        printf("[JOIN_EVENT] Failed - user=%d tried to join private event=%d\n",user_id, event_id);
+        // Event public -> không cần request (hoặc join trực tiếp tuỳ hệ thống)
+        send_response_with_log(client_sock, RESPONSE_CONFLICT,
+            "This event is public. No join request is needed.", NULL);
+        printf("[JOIN_EVENT_REQUEST] Info - user=%d attempted join-request for public event=%d\n",
+            user_id, event_id);
+
+    } else if (result == -4) {
+        // Đã có request pending
+        send_response_with_log(client_sock, RESPONSE_CONFLICT,
+            "You already have a pending join request for this event.", NULL);
+        printf("[JOIN_EVENT_REQUEST] Info - user=%d already has pending join request for event=%d\n",
+            user_id, event_id);
+
     } else {
-        send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error.", NULL);
-        printf("[JOIN_EVENT] Failed - DB error (user=%d, event=%d)\n",user_id, event_id);
+        // -1 hoặc lỗi khác
+        send_response_with_log(client_sock, RESPONSE_SERVER_ERROR,
+            "Internal server error.", NULL);
+        printf("[JOIN_EVENT_REQUEST] Failed - DB error (user=%d, event=%d, code=%d)\n",
+            user_id, event_id, result);
     }
 
 }

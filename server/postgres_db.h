@@ -133,16 +133,18 @@ int db_check_participant(int user_id, int event_id);
 int db_send_event_invitation(int event_id, int sender_id, int receiver_id);
 
 /**
- * Chấp nhận lời mời tham gia sự kiện
- * @param invitee_id        ID người nhận lời mời
- * @param inviter_username Tên người gửi lời mời
- * @return 0 nếu thành công
- *        -1 lỗi DB
- *        -2 không tìm thấy lời mời pending
+ * Chấp nhận lời mời tham gia sự kiện (đúng theo event_id)
+ * @param receiver_id: id người nhận lời mời
+ * @param sender_username: tên người gửi lời mời
+ * @param event_id: id sự kiện cần đồng ý tham gia
+ *
+ * @return:
+ *   0 = thành công
+ *  -1 = lỗi DB
+ *  -2 = không tìm thấy lời mời pending phù hợp
  */
-int db_accept_event_invitation(int invitee_id, const char* inviter_username);
+int db_accept_event_invitation(int receiver_id, const char* sender_username, int event_id) ;
 
-int db_reject_event_invitation(int invitation_id);
 int db_get_user_invitations(int user_id, char*** results, int* count);
 
 // =========================================
@@ -176,22 +178,6 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
 
 int db_reject_join_request(int request_id);
 int db_get_event_join_requests(int event_id, char*** results, int* count);
-
-// =========================================
-// ACTIVITY LOGS
-// Chức năng : Ghi log hoạt động
-// =========================================
-
-/**
- * Chức năng : Ghi log hoạt động của user
- * @param user_id - ID của user
- * @param activity_type - Loại hoạt động (VD: "CREATE_EVENT", "JOIN_EVENT", "SEND_INVITATION")
- * @param details - Chi tiết hoạt động
- * @return 0 nếu thành công, -1 nếu lỗi
- */
-int db_log_activity(int user_id, const char* activity_type, const char* details);
-
-int db_get_user_activities(int user_id, int limit, char*** results, int* count);
 
 // =========================================
 // UTILITY FUNCTIONS

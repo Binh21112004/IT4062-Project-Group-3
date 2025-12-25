@@ -271,8 +271,7 @@ static __thread const char* tls_current_request = NULL;
 void protocol_set_current_request_for_log(const char* request_line) {
     tls_current_request = request_line;
 }
-
-static void sanitize_for_log(char* s) {
+void sanitize_for_log(char* s) {
     if (!s) return;
     for (char* p = s; *p; p++) {
         if (*p == '\n' || *p == '\r') *p = ' ';
@@ -280,7 +279,7 @@ static void sanitize_for_log(char* s) {
     }
 }
 
-static void get_client_ip_str(int sock, char* out, size_t out_sz) {
+void get_client_ip_str(int sock, char* out, size_t out_sz) {
     if (!out || out_sz == 0) return;
 
     struct sockaddr_storage addr;
@@ -303,7 +302,7 @@ static void get_client_ip_str(int sock, char* out, size_t out_sz) {
     }
 }
 
-static void write_activity_log_line(int client_sock, const char* request, const char* result) {
+void write_activity_log_line(int client_sock, const char* request, const char* result) {
     time_t now = time(NULL);
     struct tm tm_now;
     localtime_r(&now, &tm_now);
