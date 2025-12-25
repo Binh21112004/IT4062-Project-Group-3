@@ -20,6 +20,8 @@ typedef struct {
 void handle_register(ServerContext* ctx, int client_sock, char** fields, int field_count);
 void handle_login(ServerContext* ctx, int client_sock, char** fields, int field_count);
 void handle_logout(ServerContext* ctx, int client_sock, char** fields, int field_count);
+void handle_send_friend_request(ServerContext* ctx, int client_sock, char** fields, int field_count);
+
 void handle_client_request(ServerContext* ctx, int client_sock, const char* buffer);
 void handle_create_event(ServerContext* ctx, int client_sock, char** fields, int field_count); // New
 void handle_get_events(ServerContext* ctx, int client_sock, char** fields, int field_count); // New

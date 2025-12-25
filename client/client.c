@@ -22,15 +22,19 @@ void print_menu() {
     
     if (strlen(session_id) > 0) {
         printf("3. Logout\n");
-        printf("4. Create event\n");
-        printf("5. Get my events\n");
-        printf("6. Edit event\n");
-        printf("7. Delete event\n");
-        printf("8. Get friends list\n");
-        printf("9. Send event invitation\n");
-        printf("10. Accept event invitation\n");
-        printf("11. Join event\n");
-        printf("12. Accept join event\n");
+        printf("4. Send Friend Request\n");
+        printf("5. Accept Friend Request\n");
+        printf("6. Reject Friend Request\n");
+        printf("7. Unfriend\n");
+        printf("8. Create event\n");
+        printf("9. Get my events\n");
+        printf("10. Edit event\n");
+        printf("11. Delete event\n");
+        printf("12. Get friends list\n");
+        printf("13. Send event invitation\n");
+        printf("14. Accept event invitation\n");
+        printf("15. Join event\n");
+        printf("16. Accept join event\n");
     }
     
     printf("0. Exit\n");
@@ -108,6 +112,137 @@ void do_login() {
             printf("\n[SUCCESS] %s\n", message);
             printf("Session ID: %s\n", session_id);
         }
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
+    }
+}
+
+void do_send_friend_request() {
+    if (strlen(session_id) == 0) {
+        printf("\n[ERROR] You are not logged in!\n");
+        return;
+    }
+    
+    char friend_username[MAX_USERNAME];
+    
+    printf("Friend's username: ");
+    fflush(stdout);
+    if (fgets(friend_username, sizeof(friend_username), stdin) == NULL) return;
+    friend_username[strcspn(friend_username, "\n")] = 0;
+    
+    // Gửi request
+    const char* fields[] = {session_id, friend_username};
+    send_request(client_sock, CMD_SEND_FRIEND_REQUEST, fields, 2);
+    
+    // Nhận response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    if (code == RESPONSE_OK) {
+        printf("\n[SUCCESS] %s\n", message);
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
+    }
+}
+
+void do_accept_friend_request() {
+    if (strlen(session_id) == 0) {
+        printf("\n[ERROR] You are not logged in!\n");
+        return;
+    }
+    
+    char requester_username[MAX_USERNAME];
+    
+    printf("Requester's username: ");
+    fflush(stdout);
+    if (fgets(requester_username, sizeof(requester_username), stdin) == NULL) return;
+    requester_username[strcspn(requester_username, "\n")] = 0;
+    // Send request
+    const char* fields[] = {session_id, requester_username};
+    send_request(client_sock, CMD_ACCEPT_FRIEND_REQUEST, fields, 2);
+    
+    // Receive response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    if (code == RESPONSE_OK) {
+        printf("\n[SUCCESS] %s\n", message);
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
+    }
+}
+
+void do_reject_friend_request() {
+    if (strlen(session_id) == 0) {
+        printf("\n[ERROR] You are not logged in!\n");
+        return;
+    }
+    
+    char requester_username[MAX_USERNAME];
+    
+    printf("Requester's username: ");
+    fflush(stdout);
+    if (fgets(requester_username, sizeof(requester_username), stdin) == NULL) return;
+    requester_username[strcspn(requester_username, "\n")] = 0;
+    
+    // Send request
+    const char* fields[] = {session_id, requester_username};
+    send_request(client_sock, CMD_REJECT_FRIEND_REQUEST, fields, 2);
+    
+    // Receive response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    if (code == RESPONSE_OK) {
+        printf("\n[SUCCESS] %s\n", message);
+    } else {
+        printf("\n[ERROR] %s (Code: %d)\n", message, code);
+    }
+    
+    if (extra_data != NULL) {
+        free(extra_data);
+    }
+}
+
+void do_unfriend() {
+    if (strlen(session_id) == 0) {
+        printf("\n[ERROR] You are not logged in!\n");
+        return;
+    }
+    
+    char friend_username[MAX_USERNAME];
+    
+    printf("Friend's username: ");
+    fflush(stdout);
+    if (fgets(friend_username, sizeof(friend_username), stdin) == NULL) return;
+    friend_username[strcspn(friend_username, "\n")] = 0;
+    
+    // Send request
+    const char* fields[] = {session_id, friend_username};
+    send_request(client_sock, CMD_UNFRIEND, fields, 2);
+    
+    // Receive response
+    int code;
+    char message[MAX_BUFFER];
+    char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
+    
+    if (code == RESPONSE_OK) {
+        printf("\n[SUCCESS] %s\n", message);
     } else {
         printf("\n[ERROR] %s (Code: %d)\n", message, code);
     }
@@ -718,30 +853,42 @@ int main() {
                 do_logout();
                 break;
             case 4:
-                do_create_event();
+                do_send_friend_request();
                 break;
             case 5:
-                do_get_events();
+                do_accept_friend_request();
                 break;
             case 6:
-                do_edit_event();
+                do_reject_friend_request();
                 break;
             case 7:
-                do_delete_event();
+                do_unfriend();
                 break;
             case 8:
-                do_get_friends();
+                do_create_event();
                 break;
             case 9:
-                do_send_invitation_event();
+                do_get_events();
                 break;
             case 10:
-                do_accept_invitation_request();
+                do_edit_event();
                 break;
             case 11:
+                do_delete_event();
+                break;
+            case 12:
+                do_get_friends();
+                break;
+            case 13:
+                do_send_invitation_event();
+                break;
+            case 14:
+                do_accept_invitation_request();
+                break;
+            case 15:
                 do_join_event();
                 break;  
-            case 12:
+            case 16:
                 accept_request_join_event();
                 break;
             case 0:

@@ -10,3 +10,59 @@
 [20/12/2025 15:02:29]$127.0.0.1$ACCEPT_INVITATION_REQUEST|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ|huyen$200|Event invitation accepted
 [20/12/2025 15:02:38]$127.0.0.1$JOIN_EVENT|uVf3TtmGzUq4LnRFMHQnzhP3uYD73KMJ|9$200|Join request sent successfully
 [20/12/2025 15:02:52]$127.0.0.1$ACCEPT_JOIN_REQUEST|rgAzDsV8Zbi4t4gW0DqGFPwAuKUUt62w|9|ducanh05$200|Join request accepted successfully
+[21/12/2025 15:28:49]$127.0.0.1$LOGIN|binhdeptrai|21112004$200|Login successful|qNMAAxyGQHzHydDIywCZijphOwcBkQjA
+[21/12/2025 15:29:16]$127.0.0.1$LOGIN|thaiduc|21112004$200|Login successful|tUZShloVSNseQVMcfd0lkftYBvnJawar
+[21/12/2025 15:30:06]$127.0.0.1$LOGIN|longngu123|21112004$200|Login successful|gZ7m8l7PXqRB9uEdvsoFxHrW1EvZ0tg5
+[21/12/2025 16:01:17]$127.0.0.1$LOGIN|binhdeptrai|21112004$200|Login successful|qJ2iEmqS6o8Nh09Dql2EHpzTyY0mgb2u
+[21/12/2025 16:01:27]$127.0.0.1$LOGIN|longngu123|21112004$200|Login successful|LUDd5TVZ5RCcGzEWIuqgKNZ6CNhGP90o
+[21/12/2025 16:01:57]$127.0.0.1$LOGIN|thaiduc|21112004$200|Login successful|RrpKbaz6RZ7loz7VTl1rXQonsvR5sFh9
+[21/12/2025 16:03:16]$127.0.0.1$SEND_FRIEND_REQUEST|qJ2iEmqS6o8Nh09Dql2EHpzTyY0mgb2u|longngu123$500|Internal server error
+[21/12/2025 16:03:30]$127.0.0.1$SEND_FRIEND_REQUEST|LUDd5TVZ5RCcGzEWIuqgKNZ6CNhGP90o|binhdeptrai$500|Internal server error
+[21/12/2025 16:07:58]$127.0.0.1$LOGIN|binhdeptrai|21112004$200|Login successful|A3CUcO4lmCyJ0hS2gMtCtGk8NY2g5Nzt
+[21/12/2025 16:08:07]$127.0.0.1$LOGIN|longngu123|21112004$200|Login successful|G1bHD6SQygnml6erIwUZ04XBRNHKr53X
+[21/12/2025 16:08:12]$127.0.0.1$LOGIN|thaiduc|21112004$200|Login successful|U4uoYa2mefzpbBHIVpxLhjaWWGwdBnZl
+[21/12/2025 16:10:33]$127.0.0.1$LOGIN|binhdeptrai|21112004$200|Login successful|KTUndlcTl7rbdBVemXjyJFO3p1SyqzOY
+[21/12/2025 16:10:39]$127.0.0.1$LOGIN|longngu123|21112004$200|Login successful|iwcjFc3R9iSaHBeRnmgWRSN6KwsYV6N2
+[21/12/2025 16:10:44]$127.0.0.1$LOGIN|thaiduc|21112004$200|Login successful|rNbWP2DP8jNFLSnY4rIJ9mFHGXwrS9h7
+[21/12/2025 16:12:54]$127.0.0.1$GET_FRIENDS|KTUndlcTl7rbdBVemXjyJFO3p1SyqzOY$200|Friends list retrieved successfully|39|haideptrai|hai@gmail.com 4|huydeptrai|huy@gmail.com 40|longngu123|long@gmail.com 41|thaiduc|duc@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 16:17:58]$127.0.0.1$LOGIN|binhdeptrai|21112004$200|Login successful|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW
+[21/12/2025 16:18:05]$127.0.0.1$LOGIN|longngu123|21112004$200|Login successful|upXuNHK9wncjhSfD3EKHuosmuepXhMKz
+[21/12/2025 16:18:27]$127.0.0.1$LOGIN|thaiduc|21112004$200|Login successful|0xUD2sAoDCvLiyec2OHn1Zzl1N98nJyd
+[21/12/2025 16:19:06]$127.0.0.1$GET_FRIENDS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Friends list retrieved successfully|39|haideptrai|hai@gmail.com 4|huydeptrai|huy@gmail.com 40|longngu123|long@gmail.com 41|thaiduc|duc@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 16:19:55]$127.0.0.1$GET_FRIENDS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Friends list retrieved successfully|39|haideptrai|hai@gmail.com 4|huydeptrai|huy@gmail.com 41|thaiduc|duc@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 16:21:02]$127.0.0.1$GET_FRIENDS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|You have no friends
+[21/12/2025 16:21:35]$127.0.0.1$GET_FRIENDS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|Friends list retrieved successfully|37|binhdeptrai|binh@gmail.com
+[21/12/2025 16:21:58]$127.0.0.1$GET_FRIENDS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Friends list retrieved successfully|39|haideptrai|hai@gmail.com 4|huydeptrai|huy@gmail.com 41|thaiduc|duc@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 16:25:19]$127.0.0.1$GET_FRIENDS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Friends list retrieved successfully|39|haideptrai|hai@gmail.com 4|huydeptrai|huy@gmail.com 40|longngu123|long@gmail.com 41|thaiduc|duc@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 16:25:21]$127.0.0.1$GET_FRIENDS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|Friends list retrieved successfully|37|binhdeptrai|binh@gmail.com
+[21/12/2025 16:26:29]$127.0.0.1$GET_FRIENDS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|Friends list retrieved successfully|37|binhdeptrai|binh@gmail.com 41|thaiduc|duc@gmail.com
+[21/12/2025 16:26:54]$127.0.0.1$REGISTER|tuvanbinhan|21112004|tu@gmail.com$200|Registration successful
+[21/12/2025 16:26:59]$127.0.0.1$LOGIN|tuvanbinhan|21112004$200|Login successful|4gFXw590wvBCRDEKfbV6YigPVfM9MaaE
+[21/12/2025 16:30:28]$127.0.0.1$GET_FRIENDS|4gFXw590wvBCRDEKfbV6YigPVfM9MaaE$200|Friends list retrieved successfully|40|longngu123|long@gmail.com
+[21/12/2025 16:30:35]$127.0.0.1$GET_FRIENDS|0xUD2sAoDCvLiyec2OHn1Zzl1N98nJyd$200|Friends list retrieved successfully|37|binhdeptrai|binh@gmail.com 39|haideptrai|hai@gmail.com 40|longngu123|long@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 16:30:39]$127.0.0.1$GET_FRIENDS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|Friends list retrieved successfully|37|binhdeptrai|binh@gmail.com 41|thaiduc|duc@gmail.com 42|tuvanbinhan|tu@gmail.com
+[21/12/2025 16:30:48]$127.0.0.1$GET_FRIENDS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|Friends list retrieved successfully|37|binhdeptrai|binh@gmail.com 41|thaiduc|duc@gmail.com
+[21/12/2025 16:30:50]$127.0.0.1$GET_FRIENDS|4gFXw590wvBCRDEKfbV6YigPVfM9MaaE$200|You have no friends
+[21/12/2025 16:31:32]$127.0.0.1$CREATE_EVENT|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|h√ustack|2026-11-21 10:00:00|hanoi|public|l·ªorem$500|Database error while creating event.
+[21/12/2025 16:32:13]$127.0.0.1$CREATE_EVENT|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|hustack|2026-11-21 10:00:00|hanoi|public|lorem$200|Event created successfully|7
+[21/12/2025 16:32:38]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|3;ducngu;hanoi;2026-11-20 10:00:00;public;active 7;hustack;hanoi;2026-11-21 10:00:00;public;active
+[21/12/2025 16:33:04]$127.0.0.1$CREATE_EVENT|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|abc|2025-10-1 10:00:00|hcm|private|lo$200|Event created successfully|8
+[21/12/2025 16:34:08]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abc;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active 7;hustack;hanoi;2026-11-21 10:00:00;public;active
+[21/12/2025 16:38:40]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abc;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active 7;hustack;hanoi;2026-11-21 10:00:00;public;active
+[21/12/2025 16:38:46]$127.0.0.1$GET_EVENT_DETAIL|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|8$200|Event detail retrieved successfully|8|abc|lo|hcm|2025-10-01 10:00:00|private|active
+[21/12/2025 16:38:50]$127.0.0.1$UPDATE_EVENT|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|8|abcd|lo|hcm|2025-10-01 10:00:00|private$200|Event updated successfully
+[21/12/2025 16:38:54]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abcd;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active 7;hustack;hanoi;2026-11-21 10:00:00;public;active
+[21/12/2025 16:40:20]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abcd;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active 7;hustack;hanoi;2026-11-21 10:00:00;public;active
+[21/12/2025 16:40:22]$127.0.0.1$DELETE_EVENT|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|7$200|Event deleted successfully
+[21/12/2025 16:41:21]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abcd;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active
+[21/12/2025 16:42:24]$127.0.0.1$JOIN_EVENT|upXuNHK9wncjhSfD3EKHuosmuepXhMKz|3$200|Join request sent successfully
+[21/12/2025 16:42:29]$127.0.0.1$GET_EVENTS|upXuNHK9wncjhSfD3EKHuosmuepXhMKz$200|Event list retrieved successfully
+[21/12/2025 16:42:55]$127.0.0.1$ACCEPT_JOIN_REQUEST|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|3|longngu123$200|Join request accepted successfully
+[21/12/2025 20:23:35]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abcd;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active
+[21/12/2025 20:23:46]$127.0.0.1$JOIN_EVENT|upXuNHK9wncjhSfD3EKHuosmuepXhMKz|8$409|This is a private event. You cannot join directly.
+[21/12/2025 20:24:00]$127.0.0.1$GET_EVENTS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Event list retrieved successfully|8;abcd;hcm;2025-10-01 10:00:00;private;active 3;ducngu;hanoi;2026-11-20 10:00:00;public;active
+[21/12/2025 20:24:04]$127.0.0.1$GET_FRIENDS|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW$200|Friends list retrieved successfully|39|haideptrai|hai@gmail.com 4|huydeptrai|huy@gmail.com 40|longngu123|long@gmail.com 41|thaiduc|duc@gmail.com 38|tuandeptrai|tuan@gmail.com
+[21/12/2025 20:24:14]$127.0.0.1$SEND_INVITATION_EVENT|tq4baATsxZOdZ6S6xnBhN2OV2gYdFfxW|longngu123|8$200|Event invitation sent successfully
+[21/12/2025 20:24:28]$127.0.0.1$ACCEPT_INVITATION_REQUEST|upXuNHK9wncjhSfD3EKHuosmuepXhMKz|binhdeptrai$200|Event invitation accepted
+[22/12/2025 10:26:37]$127.0.0.1$LOGIN|binhdeptrai|21112004$200|Login successful|ewEbp0fHp8JZUR1Ra6iiQdQ5Wp0xwcWA
+[22/12/2025 10:26:46]$127.0.0.1$LOGIN|longngu123|21112004$200|Login successful|yqzLeEguDQjnx84v4aBIehB0wrlQt8hS

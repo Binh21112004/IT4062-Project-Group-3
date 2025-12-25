@@ -343,19 +343,42 @@ int db_send_friend_request(int sender_id, int receiver_id) {
     snprintf(sender_id_str, sizeof(sender_id_str), "%d", sender_id);
     snprintf(receiver_id_str, sizeof(receiver_id_str), "%d", receiver_id);
     
+    // Check if there's a pending request from receiver to sender
+    const char* checkParams[2] = {receiver_id_str, sender_id_str};
+    PGresult* checkRes = PQexecParams(conn,
+        "SELECT request_id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 AND status = 'pending'",
+        2, NULL, checkParams, NULL, NULL, 0);
+    
+    if (PQresultStatus(checkRes) == PGRES_TUPLES_OK && PQntuples(checkRes) > 0) {
+        PQclear(checkRes);
+        return -4; // Pending request from receiver exists, must accept/reject first
+    }
+    PQclear(checkRes);
+    
+    // Check if there's already a pending request from sender to receiver
+    const char* checkParams2[2] = {sender_id_str, receiver_id_str};
+    checkRes = PQexecParams(conn,
+        "SELECT request_id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 AND status = 'pending'",
+        2, NULL, checkParams2, NULL, NULL, 0);
+    
+    if (PQresultStatus(checkRes) == PGRES_TUPLES_OK && PQntuples(checkRes) > 0) {
+        PQclear(checkRes);
+        return -3; // Request already sent
+    }
+    PQclear(checkRes);
+    
     const char* paramValues[2] = {sender_id_str, receiver_id_str};
     
+    // Insert or update old rejected/accepted requests to pending
     PGresult* res = PQexecParams(conn,
-        "INSERT INTO friend_requests (sender_id, receiver_id) VALUES ($1, $2) RETURNING request_id",
+        "INSERT INTO friend_requests (sender_id, receiver_id, status, created_at) VALUES ($1, $2, 'pending', CURRENT_TIMESTAMP) "
+        "ON CONFLICT (sender_id, receiver_id) DO UPDATE SET status = 'pending', created_at = CURRENT_TIMESTAMP, responded_at = NULL "
+        "RETURNING request_id",
         2, NULL, paramValues, NULL, NULL, 0);
     
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        const char* sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+        fprintf(stderr, "[DB_ERROR] Send friend request failed: %s\n", PQerrorMessage(conn));
         PQclear(res);
-        
-        if (sqlstate && strcmp(sqlstate, "23505") == 0) {
-            return -3; // Request already exists
-        }
         return -1;
     }
     
@@ -370,6 +393,7 @@ int db_send_friend_request(int sender_id, int receiver_id) {
     return request_id;
 }
 
+
 // Accept friend request
 int db_accept_friend_request(int request_id) {
     if (!conn) return -1;
@@ -380,14 +404,13 @@ int db_accept_friend_request(int request_id) {
     // Begin transaction
     PGresult* res = PQexec(conn, "BEGIN");
     PQclear(res);
-    
-    // Get sender and receiver IDs
     const char* paramValues1[1] = {request_id_str};
     res = PQexecParams(conn,
         "SELECT sender_id, receiver_id FROM friend_requests WHERE request_id = $1 AND status = 'pending'",
         1, NULL, paramValues1, NULL, NULL, 0);
     
     if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        fprintf(stderr, "[DB_ERROR] Accept friend request failed: No pending request with ID %d\n", request_id);
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return -1;
@@ -399,27 +422,29 @@ int db_accept_friend_request(int request_id) {
     
     // Update request status
     res = PQexecParams(conn,
-        "UPDATE friend_requests SET status = 'accepted' WHERE request_id = $1",
+        "UPDATE friend_requests SET status = 'accepted', responded_at = CURRENT_TIMESTAMP WHERE request_id = $1",
         1, NULL, paramValues1, NULL, NULL, 0);
     
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "[DB_ERROR] Accept friend request failed: UPDATE error - %s\n", PQerrorMessage(conn));
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return -1;
     }
     PQclear(res);
     
-    // Create friendship
+    // Create friendship (ignore if already exists)
     char sender_id_str[20], receiver_id_str[20];
     snprintf(sender_id_str, sizeof(sender_id_str), "%d", sender_id);
     snprintf(receiver_id_str, sizeof(receiver_id_str), "%d", receiver_id);
     
     const char* paramValues2[2] = {sender_id_str, receiver_id_str};
     res = PQexecParams(conn,
-        "INSERT INTO friendships (user_id, friend_id) VALUES ($1, $2)",
+        "INSERT INTO friendships (user1_id, user2_id) VALUES (LEAST($1::int, $2::int), GREATEST($1::int, $2::int)) ON CONFLICT (user1_id, user2_id) DO NOTHING",
         2, NULL, paramValues2, NULL, NULL, 0);
     
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        fprintf(stderr, "[DB_ERROR] Accept friend request failed: INSERT friendship error - %s\n", PQerrorMessage(conn));
         PQclear(res);
         PQexec(conn, "ROLLBACK");
         return -1;
@@ -457,24 +482,88 @@ int db_reject_friend_request(int request_id) {
     return success ? 0 : -1;
 }
 
-// Cancel friend request
-int db_cancel_friend_request(int request_id) {
+// Accept friend request by sender username
+int db_accept_friend_request_by_username(int receiver_id, const char* sender_username) {
     if (!conn) return -1;
+    int sender_id;
+    char email[100];
+    int is_active;
+    if (db_find_user_by_username(sender_username, &sender_id, email, sizeof(email), &is_active) <= 0) {
+        return -2; 
+    }
     
-    char request_id_str[20];
-    snprintf(request_id_str, sizeof(request_id_str), "%d", request_id);
+    // Find pending request
+    char receiver_id_str[20], sender_id_str[20];
+    snprintf(receiver_id_str, sizeof(receiver_id_str), "%d", receiver_id);
+    snprintf(sender_id_str, sizeof(sender_id_str), "%d", sender_id);
     
-    const char* paramValues[1] = {request_id_str};
+    const char* paramValues[2] = {sender_id_str, receiver_id_str};
     
     PGresult* res = PQexecParams(conn,
-        "DELETE FROM friend_requests WHERE request_id = $1 AND status = 'pending'",
-        1, NULL, paramValues, NULL, NULL, 0);
+        "SELECT request_id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 AND status = 'pending'",
+        2, NULL, paramValues, NULL, NULL, 0);
     
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return -3; 
+    }
+    
+    int request_id = atoi(PQgetvalue(res, 0, 0));
+    PQclear(res);
+    return db_accept_friend_request(request_id);
+}
+
+// Reject friend request by sender username
+int db_reject_friend_request_by_username(int receiver_id, const char* sender_username) {
+    if (!conn) return -1;
+    int sender_id;
+    char email[100];
+    int is_active;
+    if (db_find_user_by_username(sender_username, &sender_id, email, sizeof(email), &is_active) <= 0) {
+        return -2; 
+    }
+    
+    // Find pending request
+    char receiver_id_str[20], sender_id_str[20];
+    snprintf(receiver_id_str, sizeof(receiver_id_str), "%d", receiver_id);
+    snprintf(sender_id_str, sizeof(sender_id_str), "%d", sender_id);
+    
+    const char* paramValues[2] = {sender_id_str, receiver_id_str};
+    
+    PGresult* res = PQexecParams(conn,
+        "SELECT request_id FROM friend_requests WHERE sender_id = $1 AND receiver_id = $2 AND status = 'pending'",
+        2, NULL, paramValues, NULL, NULL, 0);
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
+        PQclear(res);
+        return -3; 
+    }
+    
+    int request_id = atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
     
-    return success ? 0 : -1;
+    // Reject the request
+    return db_reject_friend_request(request_id);
 }
+
+// Remove friend by username
+int db_remove_friend_by_username(int user_id, const char* friend_username) {
+    if (!conn) return -1;
+    int friend_id;
+    char email[100];
+    int is_active;
+    if (db_find_user_by_username(friend_username, &friend_id, email, sizeof(email), &is_active) <= 0) {
+        return -2; 
+    }   
+   
+    if (!db_check_friendship(user_id, friend_id)) {
+        return -3; 
+    }
+
+    return db_remove_friend(user_id, friend_id);
+}
+
+
 
 // Remove friend
 int db_remove_friend(int user_id, int friend_id) {
@@ -487,7 +576,7 @@ int db_remove_friend(int user_id, int friend_id) {
     const char* paramValues[2] = {user_id_str, friend_id_str};
     
     PGresult* res = PQexecParams(conn,
-        "DELETE FROM friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
+        "DELETE FROM friendships WHERE (user1_id = LEAST($1::int, $2::int) AND user2_id = GREATEST($1::int, $2::int))",
         2, NULL, paramValues, NULL, NULL, 0);
     
     int success = PQresultStatus(res) == PGRES_COMMAND_OK;
@@ -626,7 +715,7 @@ int db_check_friendship(int user_id1, int user_id2) {
     const char* paramValues[2] = {user_id1_str, user_id2_str};
     
     PGresult* res = PQexecParams(conn,
-        "SELECT 1 FROM friendships WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)",
+        "SELECT 1 FROM friendships WHERE (user1_id = LEAST($1::int, $2::int) AND user2_id = GREATEST($1::int, $2::int))",
         2, NULL, paramValues, NULL, NULL, 0);
     
     int found = PQntuples(res) > 0;

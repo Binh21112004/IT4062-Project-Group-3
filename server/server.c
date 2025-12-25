@@ -176,6 +176,176 @@ void handle_logout(ServerContext* ctx, int client_sock, char** fields, int field
     }
 }
 
+// Handle SEND_FRIEND_REQUEST
+void handle_send_friend_request(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    // SEND_FRIEND_REQUEST|session_id|friend_username
+    if (field_count != 2) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+    const char* session_id = fields[0];
+    const char* friend_username = fields[1];
+    Session* session = session_find_by_token(ctx->sm, session_id);
+    if (session == NULL || !session->is_active) {
+        send_response(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - Invalid session ID\n");
+        return;
+    } 
+    int sender_id = session->user_id;
+    int receiver_id;
+    char email[MAX_EMAIL];
+    int is_active;
+    
+    int found = db_find_user_by_username(friend_username, &receiver_id, email, sizeof(email), &is_active);
+    
+    if (found <= 0) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "User not found", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - User '%s' not found\n", friend_username);
+        return;
+    }
+    
+    if (sender_id == receiver_id) {
+        send_response(client_sock, RESPONSE_BAD_REQUEST, "Cannot send friend request to yourself", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - User %d tried to add themselves\n", sender_id);
+        return;
+    }
+    int request_id = db_send_friend_request(sender_id, receiver_id);
+    if (request_id > 0) {
+        send_response(client_sock, RESPONSE_OK, "Friend request sent successfully", NULL);
+        printf("[SEND_FRIEND_REQUEST] User %d sent friend request to '%s' (ID: %d)\n", 
+               sender_id, friend_username, receiver_id);
+    } else if (request_id == -2) {
+        send_response(client_sock, RESPONSE_CONFLICT, "Already friends", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - User %d and '%s' are already friends\n", 
+               sender_id, friend_username);
+    } else if (request_id == -3) {
+        send_response(client_sock, RESPONSE_CONFLICT, "Friend request already sent", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - Friend request already sent from %d to '%s'\n", 
+               sender_id, friend_username);
+    } else if (request_id == -4) {
+        send_response(client_sock, RESPONSE_CONFLICT, "This user has already sent you a friend request. Please accept or reject it first", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - User '%s' already sent request to %d\n", 
+               friend_username, sender_id);
+    } else {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[SEND_FRIEND_REQUEST] Failed - Database error\n");
+    }
+}
+
+void handle_accept_friend_request(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    // ACCEPT_FRIEND_REQUEST|session_id|requester_username
+    if (field_count != 2) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+    
+    const char* session_id = fields[0];
+    const char* requester_username = fields[1];
+    
+    // Validate session
+    Session* session = session_find_by_token(ctx->sm, session_id);
+    if (session == NULL || !session->is_active) {
+        send_response(client_sock, RESPONSE_UNAUTHORIZED, "Invalid or expired session", NULL);
+        printf("[ACCEPT_FRIEND_REQUEST] Failed - Invalid session\n");
+        return;
+    }
+    
+    int user_id = session->user_id;
+    
+    // Accept the friend request
+    int result = db_accept_friend_request_by_username(user_id, requester_username);
+    
+    if (result == 0) {
+        send_response(client_sock, RESPONSE_OK, "Friend request accepted", NULL);
+        printf("[ACCEPT_FRIEND_REQUEST] User %d accepted request from '%s'\n", user_id, requester_username);
+    } else if (result == -2) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "User not found", NULL);
+        printf("[ACCEPT_FRIEND_REQUEST] Failed - User '%s' not found\n", requester_username);
+    } else if (result == -3) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "No pending friend request from this user", NULL);
+        printf("[ACCEPT_FRIEND_REQUEST] Failed - No pending request from '%s' to user %d\n", requester_username, user_id);
+    } else {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[ACCEPT_FRIEND_REQUEST] Failed - Database error\n");
+    }
+}
+
+void handle_reject_friend_request(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    // REJECT_FRIEND_REQUEST|session_id|requester_username
+    if (field_count != 2) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+    
+    const char* session_id = fields[0];
+    const char* requester_username = fields[1];
+    
+    // Validate session
+    Session* session = session_find_by_token(ctx->sm, session_id);
+    if (session == NULL || !session->is_active) {
+        send_response(client_sock, RESPONSE_UNAUTHORIZED, "Invalid or expired session", NULL);
+        printf("[REJECT_FRIEND_REQUEST] Failed - Invalid session\n");
+        return;
+    }
+    
+    int user_id = session->user_id;
+    
+    // Reject the friend request
+    int result = db_reject_friend_request_by_username(user_id, requester_username);
+    
+    if (result == 0) {
+        send_response(client_sock, RESPONSE_OK, "Friend request rejected", NULL);
+        printf("[REJECT_FRIEND_REQUEST] User %d rejected request from '%s'\n", user_id, requester_username);
+    } else if (result == -2) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "User not found", NULL);
+        printf("[REJECT_FRIEND_REQUEST] Failed - User '%s' not found\n", requester_username);
+    } else if (result == -3) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "No pending friend request from this user", NULL);
+        printf("[REJECT_FRIEND_REQUEST] Failed - No pending request from '%s' to user %d\n", requester_username, user_id);
+    } else {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[REJECT_FRIEND_REQUEST] Failed - Database error\n");
+    }
+}
+
+void handle_unfriend(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    // UNFRIEND|session_id|friend_username
+    if (field_count != 2) {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+    
+    const char* session_id = fields[0];
+    const char* friend_username = fields[1];
+    
+    // Validate session
+    Session* session = session_find_by_token(ctx->sm, session_id);
+    if (session == NULL || !session->is_active) {
+        send_response(client_sock, RESPONSE_UNAUTHORIZED, "Invalid or expired session", NULL);
+        printf("[UNFRIEND] Failed - Invalid session\n");
+        return;
+    }
+    
+    int user_id = session->user_id;
+    
+    // Remove friend
+    int result = db_remove_friend_by_username(user_id, friend_username);
+    
+    if (result == 0) {
+        send_response(client_sock, RESPONSE_OK, "Friend removed successfully", NULL);
+        printf("[UNFRIEND] User %d unfriended '%s'\n", user_id, friend_username);
+    } else if (result == -2) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "User not found", NULL);
+        printf("[UNFRIEND] Failed - User '%s' not found\n", friend_username);
+    } else if (result == -3) {
+        send_response(client_sock, RESPONSE_NOT_FOUND, "Not friends with this user", NULL);
+        printf("[UNFRIEND] Failed - User %d is not friends with '%s'\n", user_id, friend_username);
+    } else {
+        send_response(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[UNFRIEND] Failed - Database error\n");
+    }
+}
+
 static int is_blank_s(const char* s) {
     if (!s) return 1;
     while (*s) {
@@ -778,6 +948,14 @@ void handle_client_request(ServerContext* ctx, int client_sock, const char* buff
         handle_delete_event(ctx, client_sock, fields, field_count);
     } else if (strcmp(command, CMD_GET_FRIENDS) == 0) {
         handle_get_friends(ctx, client_sock, fields, field_count); 
+    } else if (strcmp(command, CMD_SEND_FRIEND_REQUEST) == 0) {
+        handle_send_friend_request(ctx, client_sock, fields, field_count);
+    } else if (strcmp(command, CMD_ACCEPT_FRIEND_REQUEST) == 0) {
+        handle_accept_friend_request(ctx, client_sock, fields, field_count);
+    } else if (strcmp(command, CMD_REJECT_FRIEND_REQUEST) == 0) {
+        handle_reject_friend_request(ctx, client_sock, fields, field_count);
+    } else if (strcmp(command, CMD_UNFRIEND) == 0) {
+        handle_unfriend(ctx, client_sock, fields, field_count);
     } else if (strcmp(command, CMD_SEND_INVITATION_EVENT) == 0) {
         handle_send_invitation_event(ctx, client_sock, fields, field_count);
     } else if (strcmp(command, CMD_ACCEPT_INVITATION_REQUEST) == 0) {

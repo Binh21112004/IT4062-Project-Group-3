@@ -37,8 +37,10 @@ int db_delete_user_sessions(int user_id);
 int db_send_friend_request(int sender_id, int receiver_id);
 int db_accept_friend_request(int request_id);
 int db_reject_friend_request(int request_id);
-int db_cancel_friend_request(int request_id);
+int db_accept_friend_request_by_username(int receiver_id, const char* sender_username);
+int db_reject_friend_request_by_username(int receiver_id, const char* sender_username);
 int db_remove_friend(int user_id, int friend_id);
+int db_remove_friend_by_username(int user_id, const char* friend_username);
 int db_get_friend_requests(int user_id, char*** results, int* count);
 int db_get_friends_list(int user_id, char*** results, int* count);
 /**
