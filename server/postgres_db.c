@@ -731,36 +731,6 @@ int db_delete_event(int user_id, int event_id) {
 }
 
 
-// Get event details
-int db_get_event_details(int event_id, char*** results) {
-    if (!conn) return -1;
-    
-    char event_id_str[20];
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[1] = {event_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT e.event_id, e.event_name, e.description, e.location, e.start_time, e.end_time, "
-        "e.max_participants, e.current_participants, u.username as creator "
-        "FROM events e "
-        "JOIN users u ON e.creator_id = u.user_id "
-        "WHERE e.event_id = $1",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK || PQntuples(res) == 0) {
-        PQclear(res);
-        return -1;
-    }
-    
-    *results = malloc(9 * sizeof(char*));
-    for (int i = 0; i < 9; i++) {
-        (*results)[i] = strdup(PQgetvalue(res, 0, i));
-    }
-    
-    PQclear(res);
-    return 0;
-}
 
 // Get user's events
 /**
@@ -828,63 +798,7 @@ int db_get_user_events(int user_id, char*** results, int* count) {
 }
 
 
-/**
- * Chức năng : Lấy danh sách tất cả sự kiện
- * - Query tất cả events từ database
- * - Join với users để lấy tên creator
- * - Sắp xếp theo thời gian bắt đầu
- * @param results - Mảng chứa kết quả (cần free bằng db_free_results() sau khi dùng)
- * @param count - Số lượng sự kiện tìm được
- * @return 0 nếu thành công, -1 nếu lỗi
- */
-int db_get_all_events(char*** results, int* count) {
-    if (!conn) return -1;
-    
-    PGresult* res = PQexec(conn,
-        "SELECT e.event_id, e.title, e.location, e.event_time, "
-        "       e.event_type, e.status, u.username "
-        "FROM events e "
-        "JOIN users u ON e.creator_id = u.user_id "
-        "ORDER BY e.event_time"
-    );
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        fprintf(stderr, "[DB] Get all events failed: %s\n", PQerrorMessage(conn));
-        PQclear(res);
-        return -1;
-    }
-    
-    *count = PQntuples(res);
-    if (*count == 0) {
-        *results = NULL;
-        PQclear(res);
-        return 0;
-    }
-    
-    *results = malloc(*count * sizeof(char*));
-    if (!*results) {
-        PQclear(res);
-        return -1;
-    }
-    
-    for (int i = 0; i < *count; i++) {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s|%s|%s|%s|%s",
-                 PQgetvalue(res, i, 0), // event_id
-                 PQgetvalue(res, i, 1), // title
-                 PQgetvalue(res, i, 2), // location
-                 PQgetvalue(res, i, 3), // event_time
-                 PQgetvalue(res, i, 4), // event_type
-                 PQgetvalue(res, i, 5), // status
-                 PQgetvalue(res, i, 6)  // creator username
-        );
-        (*results)[i] = strdup(buffer);
-    }
-    
-    PQclear(res);
-    return 0;
-}
-// return: 1 = found, 0 = not found, -1 = db error
+
 int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra) {
     if (!conn || !out_extra) return -1;
     *out_extra = NULL;
@@ -940,46 +854,6 @@ int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra) 
     return 1;
 }
 
-// Search events
-int db_search_events(const char* keyword, char*** results, int* count) {
-    if (!conn) return -1;
-    
-    char pattern[512];
-    snprintf(pattern, sizeof(pattern), "%%%s%%", keyword);
-    
-    const char* paramValues[1] = {pattern};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT e.event_id, e.event_name, e.location, e.start_time, e.current_participants, e.max_participants "
-        "FROM events e "
-        "WHERE e.event_name ILIKE $1 OR e.description ILIKE $1 OR e.location ILIKE $1 "
-        "ORDER BY e.start_time",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        PQclear(res);
-        return -1;
-    }
-    
-    *count = PQntuples(res);
-    *results = malloc(*count * sizeof(char*));
-    
-    for (int i = 0; i < *count; i++) {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s|%s|%s/%s",
-                 PQgetvalue(res, i, 0), // event_id
-                 PQgetvalue(res, i, 1), // event_name
-                 PQgetvalue(res, i, 2), // location
-                 PQgetvalue(res, i, 3), // start_time
-                 PQgetvalue(res, i, 4), // current_participants
-                 PQgetvalue(res, i, 5)); // max_participants
-        
-        (*results)[i] = strdup(buffer);
-    }
-    
-    PQclear(res);
-    return 0;
-}
 
 // Join event
 int db_join_event(int user_id, int event_id) {
@@ -1010,84 +884,6 @@ int db_join_event(int user_id, int event_id) {
     return 0;
 }
 
-// Leave event
-int db_leave_event(int user_id, int event_id) {
-    if (!conn) return -1;
-    
-    char user_id_str[20], event_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[2] = {user_id_str, event_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "UPDATE event_participants SET status = 'left' WHERE user_id = $1 AND event_id = $2",
-        2, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
-    PQclear(res);
-    
-    return success ? 0 : -1;
-}
-
-// Get event participants
-int db_get_event_participants(int event_id, char*** results, int* count) {
-    if (!conn) return -1;
-    
-    char event_id_str[20];
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[1] = {event_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT u.user_id, u.username, ep.joined_at "
-        "FROM event_participants ep "
-        "JOIN users u ON ep.user_id = u.user_id "
-        "WHERE ep.event_id = $1 AND ep.status = 'joined' "
-        "ORDER BY ep.joined_at",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        PQclear(res);
-        return -1;
-    }
-    
-    *count = PQntuples(res);
-    *results = malloc(*count * sizeof(char*));
-    
-    for (int i = 0; i < *count; i++) {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s",
-                 PQgetvalue(res, i, 0), // user_id
-                 PQgetvalue(res, i, 1), // username
-                 PQgetvalue(res, i, 2)); // joined_at
-        
-        (*results)[i] = strdup(buffer);
-    }
-    
-    PQclear(res);
-    return 0;
-}
-
-// Check if user is participant
-int db_check_participant(int user_id, int event_id) {
-    if (!conn) return 0;
-    
-    char user_id_str[20], event_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[2] = {user_id_str, event_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT 1 FROM event_participants WHERE user_id = $1 AND event_id = $2 AND status = 'joined'",
-        2, NULL, paramValues, NULL, NULL, 0);
-    
-    int found = PQntuples(res) > 0;
-    PQclear(res);
-    
-    return found;
-}
 
 /**
  * Gửi lời mời tham gia sự kiện
@@ -1292,48 +1088,6 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
     return 0;
 }
 
-
-
-// Get user invitations
-int db_get_user_invitations(int user_id, char*** results, int* count) {
-    if (!conn) return -1;
-    
-    char user_id_str[20];
-    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
-    
-    const char* paramValues[1] = {user_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT ei.invitation_id, e.event_name, u.username as inviter, ei.sent_at "
-        "FROM event_invitations ei "
-        "JOIN events e ON ei.event_id = e.event_id "
-        "JOIN users u ON ei.inviter_id = u.user_id "
-        "WHERE ei.invitee_id = $1 AND ei.status = 'pending' "
-        "ORDER BY ei.sent_at DESC",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        PQclear(res);
-        return -1;
-    }
-    
-    *count = PQntuples(res);
-    *results = malloc(*count * sizeof(char*));
-    
-    for (int i = 0; i < *count; i++) {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s|%s",
-                 PQgetvalue(res, i, 0), // invitation_id
-                 PQgetvalue(res, i, 1), // event_name
-                 PQgetvalue(res, i, 2), // inviter username
-                 PQgetvalue(res, i, 3)); // sent_at
-        
-        (*results)[i] = strdup(buffer);
-    }
-    
-    PQclear(res);
-    return 0;
-}
 
 /**
  * Chức năng: Tạo yêu cầu tham gia sự kiện private
@@ -1598,68 +1352,6 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
     }
     PQclear(res);
 
-    return 0;
-}
-
-
-
-
-
-// Reject join request
-int db_reject_join_request(int request_id) {
-    if (!conn) return -1;
-    
-    char request_id_str[20];
-    snprintf(request_id_str, sizeof(request_id_str), "%d", request_id);
-    
-    const char* paramValues[1] = {request_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "UPDATE event_join_requests SET status = 'rejected' WHERE join_request_id = $1 AND status = 'pending'",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    int success = PQresultStatus(res) == PGRES_COMMAND_OK;
-    PQclear(res);
-    
-    return success ? 0 : -1;
-}
-
-// Get event join requests
-int db_get_event_join_requests(int event_id, char*** results, int* count) {
-    if (!conn) return -1;
-    
-    char event_id_str[20];
-    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
-    
-    const char* paramValues[1] = {event_id_str};
-    
-    PGresult* res = PQexecParams(conn,
-        "SELECT jr.request_id, u.username, jr.requested_at "
-        "FROM event_join_requests jr "
-        "JOIN users u ON jr.user_id = u.user_id "
-        "WHERE jr.event_id = $1 AND jr.status = 'pending' "
-        "ORDER BY jr.requested_at",
-        1, NULL, paramValues, NULL, NULL, 0);
-    
-    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        PQclear(res);
-        return -1;
-    }
-    
-    *count = PQntuples(res);
-    *results = malloc(*count * sizeof(char*));
-    
-    for (int i = 0; i < *count; i++) {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer), "%s|%s|%s",
-                 PQgetvalue(res, i, 0), // request_id
-                 PQgetvalue(res, i, 1), // username
-                 PQgetvalue(res, i, 2)); // requested_at
-        
-        (*results)[i] = strdup(buffer);
-    }
-    
-    PQclear(res);
     return 0;
 }
 

@@ -140,21 +140,6 @@ CREATE TABLE event_join_requests (
 CREATE INDEX idx_event_join_requests_event ON event_join_requests(event_id, status);
 CREATE INDEX idx_event_join_requests_user ON event_join_requests(user_id);
 
--- =========================================
--- 9. ACTIVITY_LOGS TABLE - Ghi log hoạt động
--- =========================================
-CREATE TABLE activity_logs (
-    log_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
-    action VARCHAR(100) NOT NULL,  -- 'login', 'logout', 'create_event', 'send_friend_request', etc.
-    details TEXT,  -- JSON hoặc text mô tả chi tiết
-    ip_address VARCHAR(45),  -- Hỗ trợ IPv6
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_activity_logs_user ON activity_logs(user_id);
-CREATE INDEX idx_activity_logs_action ON activity_logs(action);
-CREATE INDEX idx_activity_logs_time ON activity_logs(created_at);
 
 -- =========================================
 -- VIEWS - Các view tiện ích

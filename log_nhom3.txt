@@ -56,3 +56,5 @@
 [22/12/2025 16:54:05]$127.0.0.1$GET_EVENTS|ICkgusTHJgTwVCYAQYvJQcaSznuNl59Q$200|Event list retrieved successfully|10;test2;adadada;2025-12-25 18:00:00;public;active 12;Sinhnhat;Ftu;2026-01-10 18:18:18;private;active
 [22/12/2025 16:54:21]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|lnNnX32JTjKwrqYJX2aclXubBGwEA9sL
 [22/12/2025 16:54:39]$127.0.0.1$JOIN_EVENT|lnNnX32JTjKwrqYJX2aclXubBGwEA9sL|10$409|This event is public. No join request is needed.
+[25/12/2025 22:06:00]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|v6gsG340XYvhOkJgr7jNRe3DJd0aDAt9
+[25/12/2025 22:06:04]$127.0.0.1$GET_EVENTS|v6gsG340XYvhOkJgr7jNRe3DJd0aDAt9$200|Event list retrieved successfully|3;TH;ThanhHoacuty;2024-12-12 00:00:00;private;active 9;Test11.12;TPHCM;2025-01-01 01:01:01;public;active 11;Ducanhtest;Hust;2025-12-12 18:18:18;public;active 5;Hieungu;Thanh Hoa;2025-12-25 18:00:00;public;active 10;test2;adadada;2025-12-25 18:00:00;public;active 7;haiphong;HaiPhong;2025-12-30 12:12:12;public;active

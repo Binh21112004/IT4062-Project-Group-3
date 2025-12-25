@@ -92,31 +92,20 @@ int db_update_event(int creator_id, int event_id,const char* title,const char* d
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 int db_delete_event(int user_id,int event_id);
+ 
 
-int db_get_event_details(int event_id, char*** results);
 int db_get_user_events(int user_id, char*** results, int* count);
 
-/**
- * Chức năng : Lấy danh sách tất cả sự kiện
- * @param results - Mảng kết quả chứa thông tin sự kiện (cần free sau khi dùng)
- * @param count - Số lượng sự kiện
- * @return 0 nếu thành công, -1 nếu lỗi
- */
-int db_get_all_events(char*** results, int* count);
 
 // Lấy chi tiết sự kiện theo người tạo và event_id
 int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra);
-
-
-int db_search_events(const char* keyword, char*** results, int* count);
 
 // =========================================
 // EVENT PARTICIPANTS MANAGEMENT
 // =========================================
 int db_join_event(int user_id, int event_id);
-int db_leave_event(int user_id, int event_id);
-int db_get_event_participants(int event_id, char*** results, int* count);
-int db_check_participant(int user_id, int event_id);
+
+
 
 // =========================================
 // EVENT INVITATIONS
@@ -145,15 +134,13 @@ int db_send_event_invitation(int event_id, int sender_id, int receiver_id);
  */
 int db_accept_event_invitation(int receiver_id, const char* sender_username, int event_id) ;
 
-int db_get_user_invitations(int user_id, char*** results, int* count);
-
 // =========================================
 // EVENT JOIN REQUESTS
 // Chức năng : Yêu cầu tham gia sự kiện public
 // =========================================
 
 /**
- * Chức năng : Tạo yêu cầu tham gia sự kiện public
+ * Chức năng : Tạo yêu cầu tham gia sự kiện private
  * @param user_id - ID của user muốn tham gia
  * @param event_id - ID của sự kiện
  * @return request_id nếu thành công, -1 nếu lỗi
@@ -176,8 +163,6 @@ int db_create_join_request(int user_id, int event_id);
  */
 int db_approve_join_request_by_creator(int creator_id, int event_id, const char* join_username);
 
-int db_reject_join_request(int request_id);
-int db_get_event_join_requests(int event_id, char*** results, int* count);
 
 // =========================================
 // UTILITY FUNCTIONS
