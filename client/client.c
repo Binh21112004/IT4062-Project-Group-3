@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "../common/protocol.h"
+#include <time.h>
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 8888
@@ -306,6 +307,23 @@ int is_valid_datetime(const char* s) {
     return 1;
 }
 
+
+// Check start_time > thời gian hiện tại (local time) 
+// trả về 1 = hợp lệ , 0 = không hợp lệ, -1 = parse lỗi
+int check_time_after_now(const char* start_time) {
+    if (!start_time) return -1;
+
+    struct tm tm_start = {0};
+    if (!strptime(start_time, "%Y-%m-%d %H:%M:%S", &tm_start)) {
+        return -1;
+    }
+
+    time_t event_time = mktime(&tm_start);
+    time_t now = time(NULL);
+
+    return (difftime(event_time, now) > 0) ? 1 : 0;
+}
+
 void do_create_event() {
     if (strlen(session_id) == 0) {
         printf("[ERROR] You must login first.\n");
@@ -321,6 +339,10 @@ void do_create_event() {
     printf("Event date (YYYY-MM-DD HH:MM:SS): ");
     fgets(date, sizeof(date), stdin);
     date[strcspn(date, "\n")] = 0;
+    if(check_time_after_now(date) == 0){
+        printf("[ERROR] Event date/time must be in the future.\n");
+        return;
+    }
 
     printf("Location: ");
     fgets(location, sizeof(location), stdin);
@@ -681,6 +703,7 @@ void do_send_invitation_event(){
         free(extra);
     }
 }
+
 // Accept invitation request
 void do_accept_invitation_request() {
     if (strlen(session_id) == 0) {
@@ -689,7 +712,18 @@ void do_accept_invitation_request() {
     }
     
     char requester_username[MAX_USERNAME];
-    
+    int event_id;
+    printf("Event ID to invite: ");
+    scanf("%d", &event_id);
+    getchar();
+
+    if (event_id <= 0) {
+        printf("[ERROR] Invalid event ID.\n");
+        return;
+    }
+    char event_id_str[16];
+    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
+
     printf("Enter requester's username: ");
     fflush(stdout);
     if (fgets(requester_username, sizeof(requester_username), stdin) == NULL) return;
@@ -702,8 +736,8 @@ void do_accept_invitation_request() {
     }
     
     // Send request: ACCEPT_INVITATION_REQUEST|session_id|requester_username
-    const char* fields[] = {session_id, requester_username};
-    send_request(client_sock, CMD_ACCEPT_INVITATION_REQUEST, fields, 2);
+    const char* fields[] = {session_id, requester_username, event_id_str};
+    send_request(client_sock, CMD_ACCEPT_INVITATION_REQUEST, fields, 3);
     
     // Receive response
     int code;
@@ -731,6 +765,7 @@ void do_accept_invitation_request() {
         free(extra_data);
     }
 }
+
 void do_join_event(){
     if (strlen(session_id) == 0) {
         printf("[ERROR] You must login first.\n");
