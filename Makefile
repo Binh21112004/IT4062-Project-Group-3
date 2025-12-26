@@ -3,20 +3,21 @@ CC = gcc
 # Base flags
 CFLAGS = -Wall -g
 
-# libpq flags (pkg-config)
-# Trên Ubuntu/Debian: sudo apt install libpq-dev pkg-config
+# libpq flags (Homebrew / pkg-config)
+# Nếu pkg-config chưa có: brew install pkgconf
 LIBPQ_CFLAGS = $(shell pkg-config --cflags libpq 2>/dev/null)
 LIBPQ_LDFLAGS = $(shell pkg-config --libs libpq 2>/dev/null)
 
-# Fallback cho Linux nếu chưa cài pkg-config
+# Fallback nếu máy bạn chưa cài pkg-config hoặc libpq formula
+# (Apple Silicon Homebrew path)
 ifeq ($(strip $(LIBPQ_CFLAGS)),)
-LIBPQ_CFLAGS = -I/usr/include/postgresql
-LIBPQ_LDFLAGS = -lpq
+LIBPQ_CFLAGS = -I/opt/homebrew/opt/libpq/include
+LIBPQ_LDFLAGS = -L/opt/homebrew/opt/libpq/lib -lpq
 endif
 
 CFLAGS  += $(LIBPQ_CFLAGS)
 
-# pthread cho Linux
+# pthread trên macOS thường không cần -lpthread, nhưng để an toàn ta dùng -pthread
 LDFLAGS = $(LIBPQ_LDFLAGS) -pthread
 
 # Tên file thực thi
