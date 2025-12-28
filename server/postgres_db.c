@@ -879,6 +879,35 @@ int db_send_event_invitation(int event_id, int sender_id, int receiver_id) {
 }
 
 
+// Join event
+int db_join_event(int user_id, int event_id) {
+    if (!conn) return -1;
+    
+    char user_id_str[20], event_id_str[20];
+    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
+    snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
+    
+    const char* paramValues[2] = {user_id_str, event_id_str};
+    
+    PGresult* res = PQexecParams(conn,
+        "INSERT INTO event_participants (user_id, event_id) VALUES ($1, $2) RETURNING participant_id",
+        2, NULL, paramValues, NULL, NULL, 0);
+    
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        const char* sqlstate = PQresultErrorField(res, PG_DIAG_SQLSTATE);
+        PQclear(res);
+        
+        if (sqlstate && strcmp(sqlstate, "23505") == 0) {
+            return -2; // Already joined
+        }
+        return -1;
+    }
+    
+    PQclear(res);
+    
+    return 0;
+}
+
 /**
  * Chấp nhận lời mời tham gia sự kiện
  * @param invitee_id        ID người nhận lời mời

@@ -143,3 +143,7 @@
 [26/12/2025 09:13:59]$127.0.0.1$UPDATE_EVENT|T0Yb37gFrtXtfrr3G7P4WtNS1ToUaJ9H|14|bao ve do an|Go|BachKhoaHN|2026-07-07 12:12:12|private$200|Event updated successfully
 [26/12/2025 09:14:08]$127.0.0.1$JOIN_EVENT|RIOJ4LQURPKLCQJ9QS0FRI9gYpEwnEcD|14$200|Join request created. Waiting for creator approval.
 [26/12/2025 09:14:19]$127.0.0.1$ACCEPT_JOIN_REQUEST|T0Yb37gFrtXtfrr3G7P4WtNS1ToUaJ9H|14|huyen$200|Join request accepted successfully
+[28/12/2025 16:45:13]$127.0.0.1$LOGIN|huyen|1234$200|Login successful|h4FJaoa4J9tvcI5Gre8iYSUGPIJqeblA
+[28/12/2025 16:45:21]$127.0.0.1$JOIN_EVENT|h4FJaoa4J9tvcI5Gre8iYSUGPIJqeblA|14$200|You are already a participant of this event.
+[28/12/2025 16:45:32]$127.0.0.1$JOIN_EVENT|h4FJaoa4J9tvcI5Gre8iYSUGPIJqeblA|15$200|You are already a participant of this event.
+[28/12/2025 16:45:36]$127.0.0.1$JOIN_EVENT|h4FJaoa4J9tvcI5Gre8iYSUGPIJqeblA|16$404|Event not found or not active.

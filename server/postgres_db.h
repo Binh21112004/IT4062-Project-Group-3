@@ -103,6 +103,7 @@ int db_get_user_events(int user_id, char*** results, int* count);
 // Lấy chi tiết sự kiện theo người tạo và event_id
 int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra);
 
+int db_join_event(int user_id, int event_id);
 
 /**
  * Chức năng : Gửi lời mời tham gia sự kiện
