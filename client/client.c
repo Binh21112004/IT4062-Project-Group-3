@@ -291,7 +291,7 @@ static int is_blank(const char* s) {
     return 1;
 }
 
-// validate cơ bản YYYY-MM-DD HH:MM:SS
+// validate YYYY-MM-DD HH:MM:SS
 int is_valid_datetime(const char* s) {
     if (!s) return 0;
     int Y,M,D,h,m,sec;
@@ -356,7 +356,7 @@ void do_create_event() {
     fgets(desc, sizeof(desc), stdin);
     desc[strcspn(desc, "\n")] = 0;
 
-    // Client validate để user thấy lỗi ngay 
+    // Client validate 
     if (is_blank(name)) {
         printf("[ERROR] Event name is required.\n");
         return;
@@ -390,7 +390,6 @@ void do_create_event() {
     char message[MAX_BUFFER];
     char* extra = receive_response(client_sock, &code, message, MAX_BUFFER);
 
-    // Xử lý các trường hợp
     printf("[SERVER] (%d) %s\n", code, message);
 
     if (code == RESPONSE_OK) {
@@ -405,8 +404,6 @@ void do_create_event() {
         printf("-> Please check your input and try again.\n");
     } else if (code == RESPONSE_UNAUTHORIZED) {
         printf("-> Session invalid/expired. Please login again.\n");
-        // Option: clear session locally
-        // session_id[0] = '\0';
     } else {
         if (extra && strlen(extra) > 0) {
             printf("Details: %s\n", extra);
@@ -447,6 +444,32 @@ void do_get_events() {
 
     free(extra);
 }
+// hàm này lấy sự kiện do user tạo
+void do_get_events_crebyuser() {
+    const char* fields[] = { session_id };
+    send_request(client_sock, CMD_GET_EVENTS_CREBYUSER, fields, 1);
+
+    int code;
+    char message[MAX_BUFFER];
+    char* extra = receive_response(client_sock, &code, message, MAX_BUFFER);
+
+    printf("[SERVER] (%d) %s\n", code, message);
+
+    if (code == RESPONSE_OK && extra && strlen(extra) > 0) {
+        printf("=== Your events created by you ===\n");
+        // mỗi dòng 1 event, fields cách nhau bởi ';'
+        char* line = strtok(extra, "\n");
+        int i = 1;
+        while (line) {
+            printf("%d) %s\n", i++, line);
+            line = strtok(NULL, "\n");
+        }
+    } else if (code == RESPONSE_OK) {
+        printf("You have no events.\n");
+    }
+
+    free(extra);
+}
 
 // extra_in sẽ bị sửa (vì strtok), nên truyền vào bản copy
 // out_fields[i] sẽ trỏ vào vùng nhớ của extra_in
@@ -466,7 +489,7 @@ void do_edit_event() {
         return;
     }
 
-    do_get_events();
+    do_get_events_crebyuser();
 
     int event_id;
     printf("Event ID to edit: ");
@@ -568,6 +591,10 @@ void do_edit_event() {
         printf("[ERROR] Invalid date/time . format true : YYYY-MM-DD HH:MM:SS \n");
         return;
     }
+    if(check_time_after_now(new_time) == 0){
+        printf("[ERROR] Event date/time must be in the future.\n");
+        return;
+    }
 
     // Gửi request update
     // EDIT_EVENT|session_id|event_id|title|description|location|event_time|event_type
@@ -639,7 +666,6 @@ void do_get_friends() {
 
     if (code == RESPONSE_OK && extra && strlen(extra) > 0) {
         printf("=== Your friends ===\n");
-        // mỗi dòng 1 friend, fields cách nhau bởi ';'
         char* line = strtok(extra, "\n");
         int i = 1;
         while (line) {
@@ -657,7 +683,7 @@ void do_send_invitation_event(){
         printf("[ERROR] You must login first.\n");
         return;
     }
-    do_get_events();
+    do_get_events_crebyuser();
     int event_id;
     printf("Event ID to invite: ");
     scanf("%d", &event_id);
@@ -704,7 +730,7 @@ void do_send_invitation_event(){
     }
 }
 
-// Accept invitation request
+// accept lời mời
 void do_accept_invitation_request() {
     if (strlen(session_id) == 0) {
         printf("[ERROR] You must login first.\n");
@@ -739,7 +765,6 @@ void do_accept_invitation_request() {
     const char* fields[] = {session_id, requester_username, event_id_str};
     send_request(client_sock, CMD_ACCEPT_INVITATION_REQUEST, fields, 3);
     
-    // Receive response
     int code;
     char message[MAX_BUFFER];
     char* extra_data = receive_response(client_sock, &code, message, MAX_BUFFER);
@@ -754,6 +779,8 @@ void do_accept_invitation_request() {
         printf("[ERROR] No invitation from '%s' found.\n", requester_username);
     } else if (code == RESPONSE_SERVER_ERROR) {
         printf("[ERROR] Internal server error occurred.\n");
+    } else if (code == RESPONSE_CONFLICT) {
+        printf("[ERROR] Already accepted the invitation.\n");
     } else {
         printf("[ERROR] Failed to accept invitation request.\n");
         if (extra_data && strlen(extra_data) > 0) {
@@ -800,6 +827,7 @@ void do_join_event(){
         free(extra);
     }
 }
+// accept yêu cầu join
 void accept_request_join_event() {
     if (strlen(session_id) == 0) {
         printf("[ERROR] You must login first.\n");

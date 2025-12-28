@@ -44,7 +44,7 @@ int db_get_friends_list(int user_id, char*** results, int* count);
 /**
  * Chức năng : Lấy danh sách bạn bè của user
  * @param user_id - ID của user cần lấy danh sách bạn bè
- * @param results - Mảng kết quả chứa thông tin bạn bè (cần free sau khi dùng)
+ * @param results - Mảng kết quả chứa thông tin bạn bè 
  * @param count - Số lượng bạn bè
  * @return 0 nếu thành công, -1 nếu lỗi
  */
@@ -55,14 +55,13 @@ int db_check_friendship(int user_id1, int user_id2);
 
 // Sự kiện
 /**
- * Chức năng: Tạo mới sự kiện
- * @param creator_id - ID của user tạo sự kiện
- * @param event_name - Tên sự kiện
- * @param description - Mô tả sự kiện
- * @param location - Địa điểm tổ chức
- * @param start_time - Thời gian bắt đầu (format: YYYY-MM-DD HH:MM:SS)
- * @param end_time - Thời gian kết thúc (format: YYYY-MM-DD HH:MM:SS)
- * @param max_participants - Số lượng người tham gia tối đa
+ * Chức năng: Tạo sự kiện mới
+ * @param creator_id  ID của người tạo sự kiện
+ * @param event_name  Tên sự kiện
+ * @param description  Mô tả sự kiện
+ * @param location  Địa điểm tổ chức sự kiện
+ * @param event_time  Thời gian sự kiện
+ * @param event_type  Loại sự kiện
  * @return event_id nếu thành công, -1 nếu lỗi
  */
 int db_create_event(int creator_id,const char* event_name,const char* description,const char* location,
@@ -70,13 +69,12 @@ int db_create_event(int creator_id,const char* event_name,const char* descriptio
 
 /**
  * Chức năng: Sửa thông tin sự kiện
- * @param event_id - ID của sự kiện cần sửa
- * @param event_name - Tên sự kiện mới
- * @param description - Mô tả mới
- * @param location - Địa điểm mới
- * @param start_time - Thời gian bắt đầu mới
- * @param end_time - Thời gian kết thúc mới
- * @param max_participants - Số lượng người tham gia tối đa mới
+ * @param event_id ID của sự kiện cần sửa
+ * @param event_name  Tên sự kiện mới
+ * @param description Mô tả mới
+ * @param location  Địa điểm mới
+ * @param event_time  Thời gian sự kiện mới
+ * @param event_type  Loại sự kiện mới
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 // return: 1 = updated, 0 = not found, -1 = db error
@@ -85,7 +83,8 @@ int db_update_event(int creator_id, int event_id,const char* title,const char* d
 
 /**
  * Chức năng: Xóa sự kiện
- * @param event_id - ID của sự kiện cần xóa
+ * @param user_id  ID của người dùng (chủ sự kiện)
+ * @param event_id  ID của sự kiện cần xóa
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 int db_delete_event(int user_id,int event_id);
@@ -93,16 +92,35 @@ int db_delete_event(int user_id,int event_id);
 /**
  * Lấy danh sách sự kiện mà user sở hữu hoặc tham gia
  * @param user_id  ID người dùng
- * @param results  Mảng string kết quả (mỗi phần tử là 1 event, cần free bằng db_free_results)
+ * @param results  Mảng string kết quả (
  * @param count    Số event
  */
 int db_get_user_events(int user_id, char*** results, int* count);
 
+/**
+ * Lấy danh sách sự kiện mà user sở hữu 
+ * @param user_id  ID người dùng
+ * @param results  Mảng string kết quả 
+ * @param count  Số event
+ */
+int db_get_user_events_crebyuser(int user_id, char*** results, int* count);
 
-
-// Lấy chi tiết sự kiện theo người tạo và event_id
+/**
+ * Chức năng : Lấy chi tiết sự kiện do user tạo
+ * @param user_id  ID của user tạo sự kiện
+ * @param event_id  ID của sự kiện
+ * @param out_extra  con trỏ tới chuỗi kết quả 
+ * @return 0 nếu thành công, -1 nếu lỗi
+ */
 int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra);
 
+
+/**
+ * Chức năng : Tham gia sự kiện
+ * @param user_id - ID của user muốn tham gia
+ * @param event_id - ID của sự kiện
+ * @return 0 nếu thành công, -1 nếu lỗi
+ */
 int db_join_event(int user_id, int event_id);
 
 /**
@@ -117,8 +135,9 @@ int db_send_event_invitation(int event_id, int sender_id, int receiver_id);
 
 /**
  * Chấp nhận lời mời tham gia sự kiện
- * @param invitee_id        ID người nhận lời mời
- * @param inviter_username Tên người gửi lời mời
+ * @param receiver_id  ID người nhận lời mời
+ * @param sender_username Tên người gửi lời mời
+ * @param event_id ID của sự kiện
  * @return 0 nếu thành công
  *        -1 lỗi DB
  *        -2 không tìm thấy lời mời pending
@@ -130,25 +149,23 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
 
 /**
  * Chức năng : Tạo yêu cầu tham gia sự kiện private
- * @param user_id - ID của user muốn tham gia
- * @param event_id - ID của sự kiện
+ * @param user_id ID của user muốn tham gia
+ * @param event_id ID của sự kiện
  * @return request_id nếu thành công, -1 nếu lỗi
  */
 int db_create_join_request(int user_id, int event_id);
 
 /**
  * Chức năng: Creator chấp nhận yêu cầu tham gia sự kiện (join request)
- * Input:
- *  - creator_id   : user_id của người tạo sự kiện (người approve)
- *  - event_id     : event_id của sự kiện
- *  - join_username: username của người gửi request tham gia
- *
- * Return:
- *  0  = thành công
- * -1  = lỗi DB / transaction
- * -2  = không có request pending tương ứng
- * -3  = event không tồn tại hoặc không thuộc creator_id
- * -4  = join_username không tồn tại / không active
+ * @param creator_id ID của người tạo sự kiện
+ * @param event_id ID của sự kiện
+ * @param join_username Tên người gửi yêu cầu tham gia 
+ * 
+ * @return 0  = thành công
+ * 1 = lỗi DB / transaction
+ * 2 = không có request pending tương ứng
+ * 3 = event không tồn tại hoặc không thuộc creator_id
+ * 4 = join_username không tồn tại 
  */
 int db_approve_join_request_by_creator(int creator_id, int event_id, const char* join_username);
 

@@ -346,37 +346,11 @@ void handle_unfriend(ServerContext* ctx, int client_sock, char** fields, int fie
     }
 }
 
-static int is_blank_s(const char* s) {
-    if (!s) return 1;
-    while (*s) {
-        if (!isspace((unsigned char)*s)) return 0;
-        s++;
-    }
-    return 1;
-}
-
-static int is_valid_datetime_s(const char* s) {
-    if (!s) return 0;
-    int Y,M,D,h,m,sec;
-    char extra;
-    if (sscanf(s, "%4d-%2d-%2d %2d:%2d:%2d%c", &Y,&M,&D,&h,&m,&sec,&extra) != 6)
-        return 0;
-    if (Y < 1970 || Y > 2100) return 0;
-    if (M < 1 || M > 12) return 0;
-    if (D < 1 || D > 31) return 0;
-    if (h < 0 || h > 23) return 0;
-    if (m < 0 || m > 59) return 0;
-    if (sec < 0 || sec > 59) return 0;
-    return 1;
-}
 
 // CREATE_EVENT|session_id|event_name|event_date|event_location|event_type|event_description
 void handle_create_event(ServerContext* ctx, int client_sock, char** fields, int field_count) {
-    // 1) Validate request format : 400
     if (field_count != 6 || !fields) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,
-                      "Invalid request. Usage: CREATE_EVENT|session_id|name|datetime|location|type|desc",
-                      NULL);
+        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Invalid request. Usage: CREATE_EVENT|session_id|name|datetime|location|type|desc",NULL);
         printf("[CREATE_EVENT] Failed - Bad request (field_count=%d)\n", field_count);
         return;
     }
@@ -388,7 +362,6 @@ void handle_create_event(ServerContext* ctx, int client_sock, char** fields, int
     const char* event_type        = fields[4];
     const char* event_description = fields[5];
 
-    // 2) Validate session : 401
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (session == NULL || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED,"Invalid or expired session. Please login again.",NULL);
@@ -398,39 +371,6 @@ void handle_create_event(ServerContext* ctx, int client_sock, char** fields, int
 
     int user_id = session->user_id;
 
-    // 3) Validate fields : 400 
-    if (is_blank_s(event_name)) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Event name is required.", NULL);
-        printf("[CREATE_EVENT] Failed - Missing event_name\n");
-        return;
-    }
-
-    // ít nhất phải nhập ngày tháng :event_date bắt buộc
-    if (is_blank_s(event_date)) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Event date/time is required. Use format: YYYY-MM-DD HH:MM:SS",NULL);
-        printf("[CREATE_EVENT] Failed - Missing event_date\n");
-        return;
-    }
-
-    if (!is_valid_datetime_s(event_date)) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Invalid date/time. Use format: YYYY-MM-DD HH:MM:SS (vd: 2025-12-25 18:00:00)",NULL);
-        printf("[CREATE_EVENT] Failed - Invalid datetime: '%s'\n", event_date);
-        return;
-    }
-
-    if (is_blank_s(event_location)) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Location is required.", NULL);
-        printf("[CREATE_EVENT] Failed - Missing location\n");
-        return;
-    }
-
-    if (strcmp(event_type, "public") != 0 && strcmp(event_type, "private") != 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Invalid event type. Must be 'public' or 'private'.",NULL);
-        printf("[CREATE_EVENT] Failed - Invalid event_type: '%s'\n", event_type);
-        return;
-    }
-
-    // 4) DB create -> nếu lỗi DB thật thì 500
     int event_id = db_create_event(user_id, event_name, event_description, event_location, event_date, event_type);
     if (event_id < 0) {
         send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Database error while creating event.", NULL);
@@ -438,7 +378,6 @@ void handle_create_event(ServerContext* ctx, int client_sock, char** fields, int
         return;
     }
 
-    // 5) Success : 200 +event_id
     char extra[64];
     snprintf(extra, sizeof(extra), "%d", event_id);
 
@@ -457,7 +396,6 @@ void handle_get_events(ServerContext* ctx, int client_sock, char** fields, int f
 
     const char* session_token = fields[0];
 
-    // 1. Kiểm tra session
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (session == NULL || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
@@ -466,8 +404,6 @@ void handle_get_events(ServerContext* ctx, int client_sock, char** fields, int f
     }
 
     int user_id = session->user_id;
-
-    // 2. Lấy danh sách events từ DB
     char** results = NULL;
     int count = 0;
 
@@ -478,12 +414,11 @@ void handle_get_events(ServerContext* ctx, int client_sock, char** fields, int f
     }
 
     if (count == 0) {
-        send_response_with_log(client_sock, RESPONSE_OK, "Event list retrieved successfully", ""); // extra rỗng
+        send_response_with_log(client_sock, RESPONSE_OK, "Event list retrieved successfully", ""); 
         printf("[GET_EVENTS] Success - user %d has no events\n", user_id);
         return;
     }
 
-    // 3. Gộp thành 1 chuỗi <event_list>
     // mỗi event 1 dòng, mỗi dòng: event_id;title;location;time;type;status
     size_t buf_size = 0;
     for (int i = 0; i < count; i++) {
@@ -511,17 +446,73 @@ void handle_get_events(ServerContext* ctx, int client_sock, char** fields, int f
     free(buffer);
 }
 
-// GET_EVENT_DETAIL|session_id|event_id
-// Hàm này trả về chi tiết sự kiện theo event_id và user_id .( Dùng để gửi tới client khi client sửa sự kiện)
-void handle_get_event_detail(ServerContext* ctx, int client_sock, char** fields, int field_count){
-    if (field_count != 2) {
+// GET_EVENTS|session_id
+void handle_get_events_crebyuser(ServerContext* ctx, int client_sock, char** fields, int field_count) {
+    if (field_count != 1) {
         send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         return;
     }
 
     const char* session_token = fields[0];
+
+    Session* session = session_find_by_token(ctx->sm, session_token);
+    if (session == NULL || !session->is_active) {
+        send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
+        printf("[GET_EVENTS] Failed - Invalid session ID\n");
+        return;
+    }
+
+    int user_id = session->user_id;
+
+    char** results = NULL;
+    int count = 0;
+
+    if (db_get_user_events_crebyuser(user_id, &results, &count) < 0) {
+        send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        printf("[GET_EVENTS] Failed - DB error\n");
+        return;
+    }
+
+    if (count == 0) {
+        send_response_with_log(client_sock, RESPONSE_OK, "Event list retrieved successfully", ""); // extra rỗng
+        printf("[GET_EVENTS] Success - user %d has no events\n", user_id);
+        return;
+    }
+
+    size_t buf_size = 0;
+    for (int i = 0; i < count; i++) {
+        buf_size += strlen(results[i]) + 1; // + '\n'
+    }
+
+    char* buffer = (char*)malloc(buf_size + 1);
+    if (!buffer) {
+        db_free_results(&results, count);
+        send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+
+    buffer[0] = '\0';
+    for (int i = 0; i < count; i++) {
+        strcat(buffer, results[i]);
+        if (i < count - 1) strcat(buffer, "\n");
+    }
+
+    db_free_results(&results, count);
+
+    send_response_with_log(client_sock, RESPONSE_OK, "Event list retrieved successfully", buffer);
+    printf("[GET_EVENTS] Success - user %d has %d events\n", user_id, count);
+
+    free(buffer);
+}
+
+// GET_EVENT_DETAIL|session_id|event_id
+void handle_get_event_detail(ServerContext* ctx, int client_sock, char** fields, int field_count){
+    if (field_count != 2) {
+        send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
+        return;
+    }
+    const char* session_token = fields[0];
     const char* event_id_str  = fields[1];
-    // Kiểm tra session
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (session == NULL || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
@@ -529,16 +520,8 @@ void handle_get_event_detail(ServerContext* ctx, int client_sock, char** fields,
         return;
     }
     int user_id = session->user_id;
-    // int event_id = atoi(fields[1]);
-    char* end = NULL;
-    int event_id = strtol(event_id_str, &end, 10);
-    if (end == event_id_str || *end != '\0' || event_id <= 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Invalid event_id (must be a positive integer)", NULL);
-        return;
-    }
+    int event_id = atoi(event_id_str);
 
-     // 3) query DB
-    // extra trả về: event_id|title|description|location|event_time|event_type|status|creator_id
     char* extra = NULL;
     int rc = db_get_event_detail_by_creator(user_id, event_id, &extra);
     if (rc < 0) {
@@ -569,7 +552,6 @@ void handle_update_event(ServerContext* ctx, int client_sock, char** fields, int
     const char* event_time = fields[5];
     const char* event_type  = fields[6];
 
-    //Check session
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (!session || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
@@ -577,7 +559,6 @@ void handle_update_event(ServerContext* ctx, int client_sock, char** fields, int
     }
     int user_id = session->user_id;
 
-    //Parse event_id
     char* end = NULL;
     long eid = strtol(event_id_str, &end, 10);
     if (end == event_id_str || *end != '\0' || eid <= 0) {
@@ -586,23 +567,6 @@ void handle_update_event(ServerContext* ctx, int client_sock, char** fields, int
     }
     int event_id = (int)eid;
 
-    // Validate field
-    if (!title || strlen(title) == 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Title is required", NULL);
-        return;
-    }
-    if (!event_time || strlen(event_time) == 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Event time is required (YYYY-MM-DD HH:MM:SS)", NULL);
-        return;
-    }
-    if (!location || strlen(location) == 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST, "Location is required", NULL);
-        return;
-    }
-    if (strcmp(event_type, "public") != 0 && strcmp(event_type, "private") != 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Event type must be 'public' or 'private'", NULL);
-        return;
-    }
     //gọi qua db để update 
     int rc = db_update_event(user_id, event_id, title, description, location, event_time, event_type);
 
@@ -628,24 +592,14 @@ void handle_delete_event(ServerContext* ctx, int client_sock, char** fields, int
     const char* session_token = fields[0];
     const char* event_id_str  = fields[1];
 
-    // Check session
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (!session || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
         return;
     }
     int user_id = session->user_id;
-
-    //Parse event_id
-    char* end = NULL;
-    long eid = strtol(event_id_str, &end, 10);
-    if (end == event_id_str || *end != '\0' || eid <= 0) {
-        send_response_with_log(client_sock, RESPONSE_BAD_REQUEST,"Invalid event_id (must be a positive integer)", NULL);
-        return;
-    }
-    int event_id = (int)eid;
-
-    //DB delete
+    int event_id = atoi(event_id_str);
+   
     int rc = db_delete_event(user_id, event_id);
     if (rc < 0) {
         send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
@@ -667,7 +621,6 @@ void handle_get_friends(ServerContext* ctx, int client_sock, char** fields, int 
 
     const char* session_token = fields[0];
 
-    //Check session
     Session* session = session_find_by_token(ctx->sm, session_token);
     if (!session || !session->is_active) {
         send_response_with_log(client_sock, RESPONSE_UNAUTHORIZED, "Invalid session ID", NULL);
@@ -676,7 +629,6 @@ void handle_get_friends(ServerContext* ctx, int client_sock, char** fields, int 
 
     int user_id = session->user_id;
 
-    // db
     char** results = NULL;
     int count = 0;
 
@@ -773,7 +725,7 @@ void handle_send_invitation_event(ServerContext* ctx, int client_sock, char** fi
         printf("[SEND_EVENT_INVITATION] Failed - sender=%d is not creator of event=%d\n", sender_id, event_id);
 
     } else if (invitation_id == -5) {
-        // Đã gửi lời mời rồi.
+        // Đã gửi lời mời rồi
         send_response_with_log(client_sock, RESPONSE_CONFLICT, "Event invitation already pending", NULL);
         printf("[SEND_EVENT_INVITATION] Failed - Invitation already pending (event=%d sender=%d receiver=%d)\n",event_id, sender_id, receiver_id);
     } else if (invitation_id == -6) {
@@ -818,6 +770,10 @@ void handle_accept_invitation_request(ServerContext* ctx, int client_sock, char*
         send_response_with_log(client_sock, RESPONSE_NOT_FOUND, "No event invitation found", NULL);
         printf("[ACCEPT_INVITATION_REQUEST] Not found - receiver=%d sender='%s'\n",
                receiver_id, requester_username);
+    } else if (result == -3) {
+        send_response_with_log(client_sock, RESPONSE_CONFLICT, "You are already a participant of this event.", NULL);
+        printf("[ACCEPT_INVITATION_REQUEST] Info - receiver=%d already joined event=%d\n",
+               receiver_id, event_id);
     } else {
         send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         printf("[ACCEPT_INVITATION_REQUEST] Failed - DB error\n");
@@ -848,7 +804,7 @@ void handle_join_event(ServerContext* ctx, int client_sock, char** fields, int f
     int result = db_create_join_request(user_id, event_id);
 
     if (result > 0) {
-        // Tạo join request thành công (private)
+        // Tạo join request thành công 
         send_response_with_log(client_sock, RESPONSE_OK,
             "Join request created. Waiting for creator approval.", NULL);
         printf("[JOIN_EVENT_REQUEST] Success - user=%d requested to join private event=%d (join_request_id=%d)\n",
@@ -869,7 +825,7 @@ void handle_join_event(ServerContext* ctx, int client_sock, char** fields, int f
             event_id, user_id);
 
     } else if (result == -3) {
-        // Event public -> không cần request (hoặc join trực tiếp tuỳ hệ thống)
+        // Event public nên không cần request
         send_response_with_log(client_sock, RESPONSE_CONFLICT,
             "This event is public. No join request is needed.", NULL);
         printf("[JOIN_EVENT_REQUEST] Info - user=%d attempted join-request for public event=%d\n",
@@ -983,6 +939,8 @@ void handle_client_request(ServerContext* ctx, int client_sock, const char* buff
         handle_join_event(ctx, client_sock, fields, field_count);
     } else if (strcmp(command, CMD_ACCEPT_JOIN_REQUEST) == 0) {
         handle_accept_join_request(ctx, client_sock, fields, field_count);
+    } else if (strcmp(command, CMD_GET_EVENTS_CREBYUSER) == 0) {
+        handle_get_events_crebyuser(ctx, client_sock, fields, field_count);
     } else {
         send_response_with_log(client_sock, RESPONSE_SERVER_ERROR, "Internal server error", NULL);
         printf("[ERROR] Unknown command: %s\n", command);

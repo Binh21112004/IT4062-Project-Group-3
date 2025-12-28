@@ -539,12 +539,12 @@ int db_check_friendship(int user_id1, int user_id2) {
 
 /**
  * Tạo mới sự kiện
- * @param creator_id   ID user tạo sự kiện
- * @param event_name   Tên sự kiện  (map vào events.title)
- * @param description  Mô tả        (events.description)
- * @param location     Địa điểm     (events.location)
- * @param event_time   Thời gian    (events.event_time, format: YYYY-MM-DD HH:MM:SS)
- * @param event_type   'public' / 'private' (events.event_type)
+ * @param creator_id ID user tạo sự kiện
+ * @param event_name Tên sự kiện  
+ * @param description  Mô tả       
+ * @param location  Địa điểm
+ * @param event_time  Thời gian 
+ * @param event_type  public / private
  * @return event_id nếu OK, -1 nếu lỗi
  */
 int db_create_event(int creator_id,const char* event_name,const char* description,
@@ -552,7 +552,6 @@ int db_create_event(int creator_id,const char* event_name,const char* descriptio
 {
     if (!conn) return -1;
 
-    // ép kiểu creator_id sang string
     char creator_id_str[20];
     snprintf(creator_id_str, sizeof(creator_id_str), "%d", creator_id);
 
@@ -588,7 +587,8 @@ int db_create_event(int creator_id,const char* event_name,const char* descriptio
 
 /**
  * Chức năng : Sửa thông tin sự kiện
- * - Update thông tin sự kiện trong database
+ * Update thông tin sự kiện trong database
+ * input tương tự db_create_event
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 // return: 1 = updated, 0 = not found, -1 = db error
@@ -626,7 +626,8 @@ int db_update_event(int creator_id, int event_id,const char* title,const char* d
 /**
  * Chức năng : Xóa sự kiện
  * - Xóa sự kiện khỏi database
- * - Cascade delete sẽ tự động xóa các bản ghi liên quan (participants, invitations, requests)
+ *  @param user_id  ID người dùng 
+ * @param event_id ID sự kiện
  * @return 0 nếu thành công, -1 nếu lỗi
  */
 // return: 1 = deleted, 0 = not found, -1 = db error
@@ -662,9 +663,9 @@ int db_delete_event(int user_id, int event_id) {
 // Get user's events
 /**
  * Lấy danh sách sự kiện mà user sở hữu hoặc tham gia
- * @param user_id  ID người dùng
- * @param results  Mảng string kết quả (mỗi phần tử là 1 event, cần free bằng db_free_results)
- * @param count    Số event
+ * @param user_id ID người dùng
+ * @param results Mảng string kết quả
+ * @param count Số event
  */
 int db_get_user_events(int user_id, char*** results, int* count) {
     if (!conn) return -1;
@@ -725,6 +726,78 @@ int db_get_user_events(int user_id, char*** results, int* count) {
 }
 
 
+// Get user's events
+/**
+ * Lấy danh sách sự kiện mà user sở hữu 
+ * @param user_id  ID người dùng
+ * @param results  Mảng string kết quả 
+ * @param count  Số event
+ */
+int db_get_user_events_crebyuser(int user_id, char*** results, int* count) {
+    if (!conn) return -1;
+
+    char user_id_str[20];
+    snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
+
+    const char* params[1] = { user_id_str };
+
+    PGresult* res = PQexecParams(
+        conn,
+        "SELECT DISTINCT e.event_id, e.title, e.location, e.event_time, e.event_type, e.status "
+        "FROM events e "
+        "LEFT JOIN event_participants ep ON e.event_id = ep.event_id "
+        "WHERE e.creator_id = $1 "
+        "ORDER BY e.event_time",
+        1, NULL, params, NULL, NULL, 0
+    );
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        fprintf(stderr, "db_get_user_events error: %s\n", PQerrorMessage(conn));
+        PQclear(res);
+        return -1;
+    }
+
+    *count = PQntuples(res);
+    *results = NULL;
+
+    if (*count == 0) {
+        PQclear(res);
+        return 0;
+    }
+
+    *results = (char**)malloc(*count * sizeof(char*));
+    if (!*results) {
+        PQclear(res);
+        return -1;
+    }
+
+    for (int i = 0; i < *count; i++) {
+        char buffer[512];
+
+        // format 1 dòng: event_id;title;location;time;type;status
+        snprintf(buffer, sizeof(buffer), "%s;%s;%s;%s;%s;%s",
+                 PQgetvalue(res, i, 0), // event_id
+                 PQgetvalue(res, i, 1), // title
+                 PQgetvalue(res, i, 2), // location
+                 PQgetvalue(res, i, 3), // event_time
+                 PQgetvalue(res, i, 4), // event_type
+                 PQgetvalue(res, i, 5)  // status
+        );
+
+        (*results)[i] = strdup(buffer);
+    }
+
+    PQclear(res);
+    return 0;
+}
+
+/** 
+* Lấy chi tiết sự kiện do user tạo
+* @param user_id ID người dùng (creator)
+* @param event_id ID sự kiện
+* @param out_extra kết quả 
+* @return 1 nếu tìm thấy, 0 nếu không tìm thấy, -1 nếu lỗi
+*/
 int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra) {
     if (!conn || !out_extra) return -1;
     *out_extra = NULL;
@@ -785,14 +858,16 @@ int db_get_event_detail_by_creator(int user_id, int event_id, char** out_extra) 
 
 /**
  * Gửi lời mời tham gia sự kiện
+ * @param event_id ID sự kiện
+ * @param sender_id ID người gửi lời mời 
+ * @param receiver_id ID người nhận lời mời
  * @return invitation_id nếu OK
  *         -1  DB error
  *         -2  Event không tồn tại / không active
- *         -3  User nhận không tồn tại / inactive
+ *         -3  User nhận không tồn tại
  *         -4  Không có quyền mời (không phải creator)
  *         -5  Đã có invitation pending
  *         -6  Người nhận đã tham gia event
- *         -7  Không thể tự mời chính mình
  */
 int db_send_event_invitation(int event_id, int sender_id, int receiver_id) {
     if (!conn) return -1;
@@ -879,7 +954,14 @@ int db_send_event_invitation(int event_id, int sender_id, int receiver_id) {
 }
 
 
-// Join event
+// insert vào bảng event_participants
+/**
+ * @param user_id ID người dùng
+ * @param event_id ID sự kiện
+ * @return 0 nếu thành công
+ *        -1 lỗi DB
+ *       -2 đã tham gia sự kiện rồi
+ */
 int db_join_event(int user_id, int event_id) {
     if (!conn) return -1;
     
@@ -898,7 +980,7 @@ int db_join_event(int user_id, int event_id) {
         PQclear(res);
         
         if (sqlstate && strcmp(sqlstate, "23505") == 0) {
-            return -2; // Already joined
+            return -2; // Already joined , 23505 là mã lỗi unique_violation
         }
         return -1;
     }
@@ -910,16 +992,17 @@ int db_join_event(int user_id, int event_id) {
 
 /**
  * Chấp nhận lời mời tham gia sự kiện
- * @param invitee_id        ID người nhận lời mời
- * @param inviter_username Tên người gửi lời mời
+ * @param receiver_id ID người nhận lời mời
+ * @param sender_username Tên người gửi lời mời
+ * @param event_id ID sự kiện
  * @return 0 nếu thành công
  *        -1 lỗi DB
  *        -2 không tìm thấy lời mời pending
+ *        -3 đã tham gia sự kiện rồi
  */
 // return: 0 success, -2 not found, -1 db error
 int db_accept_event_invitation(int receiver_id, const char* sender_username, int event_id) {
-    if (!conn || !sender_username || sender_username[0] == '\0') return -1;
-    if (receiver_id <= 0 || event_id <= 0) return -1;
+    if (!conn) return -1;
 
     char receiver_id_str[20], event_id_str[20];
     snprintf(receiver_id_str, sizeof(receiver_id_str), "%d", receiver_id);
@@ -933,7 +1016,7 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
     }
     PQclear(res);
 
-    // Find pending invitation by (sender_username + receiver_id + event_id), lock row
+    // Tìm invitation pending theo sender_username, receiver_id, event_id
     const char* params1[3] = { sender_username, receiver_id_str, event_id_str };
 
     res = PQexecParams(
@@ -942,9 +1025,9 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
         "FROM event_invitations ei "
         "JOIN users u ON ei.sender_id = u.user_id "
         "WHERE u.username = $1 "
-        "  AND ei.receiver_id = $2 "
-        "  AND ei.event_id = $3 "
-        "  AND ei.status = 'pending' "
+        "AND ei.receiver_id = $2 "
+        "AND ei.event_id = $3 "
+        "AND ei.status = 'pending' "
         "ORDER BY ei.created_at DESC "
         "LIMIT 1 "
         "FOR UPDATE",
@@ -967,7 +1050,7 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
     int invitation_id = atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
 
-    // Update invitation -> accepted (ràng buộc thêm receiver_id + event_id cho chắc)
+    // undate thành accept
     char invitation_id_str[20];
     snprintf(invitation_id_str, sizeof(invitation_id_str), "%d", invitation_id);
     const char* params2[3] = { invitation_id_str, receiver_id_str, event_id_str };
@@ -977,9 +1060,9 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
         "UPDATE event_invitations "
         "SET status = 'accepted', responded_at = CURRENT_TIMESTAMP "
         "WHERE invitation_id = $1 "
-        "  AND receiver_id = $2 "
-        "  AND event_id = $3 "
-        "  AND status = 'pending'",
+        "AND receiver_id = $2 "
+        "AND event_id = $3 "
+        "AND status = 'pending'",
         3, NULL, params2, NULL, NULL, 0
     );
 
@@ -990,7 +1073,7 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
         return -1;
     }
 
-    // (Khuyến nghị) đảm bảo update thực sự đổi 1 dòng
+    // đảm bảo update thực sự đổi 1 dòng
     if (PQcmdTuples(res) && atoi(PQcmdTuples(res)) == 0) {
         PQclear(res);
         PQexec(conn, "ROLLBACK");
@@ -999,11 +1082,14 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
     PQclear(res);
 
     // Join event theo event_id truyền vào
-    if (db_join_event(receiver_id, event_id) < 0) {
+    int join_result = db_join_event(receiver_id, event_id);
+    if (join_result == -1) {
         PQexec(conn, "ROLLBACK");
         return -1;
+    } else if (join_result == -2) {
+        PQexec(conn, "ROLLBACK");
+        return -3;
     }
-
     res = PQexec(conn, "COMMIT");
     if (!res || PQresultStatus(res) != PGRES_COMMAND_OK) {
         if (res) PQclear(res);
@@ -1018,33 +1104,32 @@ int db_accept_event_invitation(int receiver_id, const char* sender_username, int
 
 
 /**
- * Chức năng: Tạo yêu cầu tham gia sự kiện public
- * - User gửi request để tham gia sự kiện
- * - Status mặc định là 'pending' (theo DB default)
- * - Cần admin/creator approve mới được tham gia
+ * Chức năng: Tạo yêu cầu tham gia sự kiện private
+ * @param user_id ID người dùng gửi request
+ * @param event_id ID sự kiện
  *
  * @return:
  *  >0  = request_id (tạo request thành công)
  *   0  = đã join rồi (đã có trong event_participants)
  *  -1  = lỗi database
  *  -2  = event không tồn tại / không active
- *  -3  = event private (không được join trực tiếp)
+ *  -3  = event public , không cần request
+ *  -4  = đã có request pending
  */
 int db_create_join_request(int user_id, int event_id) {
     if (!conn) return -1;
-    if (user_id <= 0 || event_id <= 0) return -1;
 
     char user_id_str[20], event_id_str[20];
     snprintf(user_id_str, sizeof(user_id_str), "%d", user_id);
     snprintf(event_id_str, sizeof(event_id_str), "%d", event_id);
 
     //Check event exists + active + type
-    const char* p_event[1] = { event_id_str };
+    const char* event[1] = { event_id_str };
     PGresult* res = PQexecParams(
         conn,
         "SELECT event_type FROM events "
         "WHERE event_id = $1 AND status = 'active'",
-        1, NULL, p_event, NULL, NULL, 0
+        1, NULL, event, NULL, NULL, 0
     );
 
     if (!res || PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -1055,24 +1140,24 @@ int db_create_join_request(int user_id, int event_id) {
 
     if (PQntuples(res) == 0) {
         PQclear(res);
-        return -2; // event not found or not active
+        return -2; // event không tồn tại 
     }
 
     const char* event_type = PQgetvalue(res, 0, 0);
     PQclear(res);
 
-    //Chỉ cho phép tạo request nếu event là private
+    // tạo request nếu event là private
     if (!event_type || strcmp(event_type, "private") != 0) {
-        return -3; // nếu không phải private 
+        return -3; 
     }
 
-    //  Check already joined
-    const char* p_join[2] = { event_id_str, user_id_str };
+    // check đã tham gia sự kiện chưa
+    const char* join[2] = { event_id_str, user_id_str };
     res = PQexecParams(
         conn,
         "SELECT 1 FROM event_participants "
         "WHERE event_id = $1 AND user_id = $2",
-        2, NULL, p_join, NULL, NULL, 0
+        2, NULL, join, NULL, NULL, 0
     );
 
     if (!res || PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -1083,11 +1168,11 @@ int db_create_join_request(int user_id, int event_id) {
 
     if (PQntuples(res) > 0) {
         PQclear(res);
-        return 0; // already joined
+        return 0; // đã join
     }
     PQclear(res);
 
-    // Check already has pending request
+    // Check đã có request pending chưa
     const char* p_req[2] = { user_id_str, event_id_str };
     res = PQexecParams(
         conn,
@@ -1105,11 +1190,11 @@ int db_create_join_request(int user_id, int event_id) {
 
     if (PQntuples(res) > 0) {
         PQclear(res);
-        return -4; // already has pending request
+        return -4; // đã có request pending
     }
     PQclear(res);
 
-    // Insert join request (status default 'pending' at DB level or set explicitly)
+    // Insert join request
     const char* paramValues[2] = { user_id_str, event_id_str };
     res = PQexecParams(
         conn,
@@ -1133,10 +1218,9 @@ int db_create_join_request(int user_id, int event_id) {
 
 /**
  * Chức năng: Creator chấp nhận yêu cầu tham gia sự kiện (join request)
- * Input:
- *  - creator_id   : user_id của người tạo sự kiện (người approve)
- *  - event_id     : event_id của sự kiện
- *  - join_username: username của người gửi request tham gia
+ * @param creator_id ID người tạo sự kiện
+ * @param event_id ID sự kiện
+ * @param join_username Tên người gửi request tham gia
  *
  * Return:
  *  0  = thành công
@@ -1147,7 +1231,7 @@ int db_create_join_request(int user_id, int event_id) {
  */
 int db_approve_join_request_by_creator(int creator_id, int event_id, const char* join_username)
 {
-    if (!conn || !join_username || join_username[0] == '\0') return -1;
+    if (!conn) return -1;
 
     char creator_id_str[20], event_id_str[20];
     snprintf(creator_id_str, sizeof(creator_id_str), "%d", creator_id);
@@ -1161,7 +1245,7 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
     }
     PQclear(res);
 
-    // Check event exists + belongs to creator + active
+    // Check event tồn tại + thuộc creator_id + active
     const char* params_event[2] = { event_id_str, creator_id_str };
     res = PQexecParams(
         conn,
@@ -1178,11 +1262,11 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
     if (PQntuples(res) == 0) {
         PQclear(res);
         PQexec(conn, "ROLLBACK");
-        return -3; // event not found
+        return -3; 
     }
     PQclear(res);
 
-    // Get join_user_id by username (must be active)
+    // Tìm user_id của join_username 
     const char* params_user[1] = { join_username };
     res = PQexecParams(
         conn,
@@ -1198,13 +1282,13 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
     if (PQntuples(res) == 0) {
         PQclear(res);
         PQexec(conn, "ROLLBACK");
-        return -4; // username not exist / not active
+        return -4; 
     }
 
     int join_user_id = atoi(PQgetvalue(res, 0, 0));
     PQclear(res);
 
-    // Find pending join request (lock to avoid double-approve)
+    // Tìm join request pending
     char join_user_id_str[20];
     snprintf(join_user_id_str, sizeof(join_user_id_str), "%d", join_user_id);
 
@@ -1226,7 +1310,7 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
     if (PQntuples(res) == 0) {
         PQclear(res);
         PQexec(conn, "ROLLBACK");
-        return -2; // no pending request
+        return -2; 
     }
 
     int join_request_id = atoi(PQgetvalue(res, 0, 0));
@@ -1252,7 +1336,7 @@ int db_approve_join_request_by_creator(int creator_id, int event_id, const char*
     }
     PQclear(res);
 
-    //Insert participant (role phải đúng CHECK: 'creator' hoặc 'participant')
+    //Insert vào bảng event_participants
     res = PQexecParams(
         conn,
         "INSERT INTO event_participants (event_id, user_id, role) "
