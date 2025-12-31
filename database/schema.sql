@@ -10,7 +10,6 @@ DROP TABLE IF EXISTS event_participants CASCADE;
 DROP TABLE IF EXISTS events CASCADE;
 DROP TABLE IF EXISTS friendships CASCADE;
 DROP TABLE IF EXISTS friend_requests CASCADE;
-DROP TABLE IF EXISTS sessions CASCADE;
 DROP TABLE IF EXISTS activity_logs CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 
@@ -31,23 +30,7 @@ CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_email ON users(email);
 
 -- =========================================
--- 2. SESSIONS TABLE - Quản lý phiên đăng nhập
--- =========================================
-CREATE TABLE sessions (
-    session_id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    session_token VARCHAR(64) UNIQUE NOT NULL,
-    socket_fd INTEGER,  -- File descriptor của socket connection
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_sessions_token ON sessions(session_token);
-CREATE INDEX idx_sessions_user ON sessions(user_id);
-
--- =========================================
--- 3. FRIEND_REQUESTS TABLE - Lời mời kết bạn
+-- 2. FRIEND_REQUESTS TABLE - Lời mời kết bạn
 -- =========================================
 CREATE TABLE friend_requests (
     request_id SERIAL PRIMARY KEY,
@@ -63,7 +46,7 @@ CREATE INDEX idx_friend_requests_receiver ON friend_requests(receiver_id, status
 CREATE INDEX idx_friend_requests_sender ON friend_requests(sender_id);
 
 -- =========================================
--- 4. FRIENDSHIPS TABLE - Danh sách bạn bè
+-- 3. FRIENDSHIPS TABLE - Danh sách bạn bè
 -- =========================================
 CREATE TABLE friendships (
     friendship_id SERIAL PRIMARY KEY,
@@ -77,7 +60,7 @@ CREATE INDEX idx_friendships_user1 ON friendships(user1_id);
 CREATE INDEX idx_friendships_user2 ON friendships(user2_id);
 
 -- =========================================
--- 5. EVENTS TABLE - Quản lý sự kiện
+-- 4. EVENTS TABLE - Quản lý sự kiện
 -- =========================================
 CREATE TABLE events (
     event_id SERIAL PRIMARY KEY, -- Mã sự kiện
@@ -93,7 +76,7 @@ CREATE TABLE events (
 );
 
 -- =========================================
--- 6. EVENT_PARTICIPANTS TABLE - Người tham gia sự kiện
+-- 5. EVENT_PARTICIPANTS TABLE - Người tham gia sự kiện
 -- =========================================
 CREATE TABLE event_participants (
     participant_id SERIAL PRIMARY KEY,
@@ -108,7 +91,7 @@ CREATE INDEX idx_event_participants_event ON event_participants(event_id);
 CREATE INDEX idx_event_participants_user ON event_participants(user_id);
 
 -- =========================================
--- 7. EVENT_INVITATIONS TABLE - Lời mời tham gia sự kiện
+-- 6. EVENT_INVITATIONS TABLE - Lời mời tham gia sự kiện
 -- =========================================
 CREATE TABLE event_invitations (
     invitation_id SERIAL PRIMARY KEY,
@@ -125,7 +108,7 @@ CREATE INDEX idx_event_invitations_receiver ON event_invitations(receiver_id, st
 CREATE INDEX idx_event_invitations_event ON event_invitations(event_id);
 
 -- =========================================
--- 8. EVENT_JOIN_REQUESTS TABLE - Yêu cầu tham gia sự kiện Public
+-- 7. EVENT_JOIN_REQUESTS TABLE - Yêu cầu tham gia sự kiện Public
 -- =========================================
 CREATE TABLE event_join_requests (
     join_request_id SERIAL PRIMARY KEY,
@@ -141,7 +124,7 @@ CREATE INDEX idx_event_join_requests_event ON event_join_requests(event_id, stat
 CREATE INDEX idx_event_join_requests_user ON event_join_requests(user_id);
 
 -- =========================================
--- 9. ACTIVITY_LOGS TABLE - Ghi log hoạt động
+-- 8. ACTIVITY_LOGS TABLE - Ghi log hoạt động
 -- =========================================
 CREATE TABLE activity_logs (
     log_id SERIAL PRIMARY KEY,
@@ -212,18 +195,6 @@ BEGIN
         SELECT 1 FROM friendships 
         WHERE (user1_id = LEAST(uid1, uid2) AND user2_id = GREATEST(uid1, uid2))
     );
-END;
-$$ LANGUAGE plpgsql;
-
--- Function: Cleanup expired sessions
-CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
-RETURNS INTEGER AS $$
-DECLARE
-    deleted_count INTEGER;
-BEGIN
-    DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP;
-    GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
 

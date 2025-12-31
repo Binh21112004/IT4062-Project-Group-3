@@ -111,7 +111,6 @@ void do_login() {
             strncpy(session_id, extra_data, MAX_SESSION_ID - 1);
             session_id[MAX_SESSION_ID - 1] = '\0';
             printf("\n[SUCCESS] %s\n", message);
-            printf("Session ID: %s\n", session_id);
         }
     } else {
         printf("\n[ERROR] %s (Code: %d)\n", message, code);
